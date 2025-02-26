@@ -2,14 +2,18 @@ package com.example.myapplication.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.myapplication.ui.auth.AuthScreen
 import com.example.myapplication.ui.groups.GroupsScreen
+import com.example.myapplication.ui.groups.GroupDetailsScreen
 import com.example.myapplication.ui.home.HomeScreen
 import com.example.myapplication.ui.profile.ProfileScreen
 import com.example.myapplication.viewmodel.GroupViewModel
@@ -19,6 +23,9 @@ sealed class Screen(val route: String) {
     object Auth : Screen("auth")
     object Home : Screen("home")
     object Groups : Screen("groups")
+    object GroupDetails : Screen("group/{groupId}") {
+        fun createRoute(groupId: String) = "group/$groupId"
+    }
     object Profile : Screen("profile")
 }
 
@@ -28,14 +35,18 @@ fun NavGraph(
     modifier: Modifier = Modifier
 ) {
     val groupViewModel: GroupViewModel = viewModel()
+
+    // Collect state from ViewModel
     val groups by groupViewModel.groups.collectAsState(initial = emptyList())
     val availableMembers by groupViewModel.availableMembers.collectAsState(initial = emptyList())
+    val selectedGroup by groupViewModel.selectedGroup.collectAsState()
 
     NavHost(
         navController = navController,
         startDestination = Screen.Auth.route,
         modifier = modifier
     ) {
+        // Authentication screen
         composable(Screen.Auth.route) {
             AuthScreen(
                 onSignInSuccess = {
@@ -46,6 +57,7 @@ fun NavGraph(
             )
         }
 
+        // Home screen
         composable(Screen.Home.route) {
             HomeScreen(
                 onNavigateToGroups = { navController.navigate(Screen.Groups.route) },
@@ -53,13 +65,14 @@ fun NavGraph(
             )
         }
 
+        // Groups screen
         composable(Screen.Groups.route) {
             GroupsScreen(
                 groups = groups,
                 availableMembers = availableMembers,
                 onNavigateBack = { navController.popBackStack() },
                 onGroupSelected = { groupId ->
-                    // Handle group selection if needed
+                    navController.navigate(Screen.GroupDetails.createRoute(groupId))
                 },
                 onCreateGroup = { name, members ->
                     groupViewModel.createGroup(
@@ -73,6 +86,24 @@ fun NavGraph(
             )
         }
 
+        // Group details screen
+        composable(
+            route = Screen.GroupDetails.route,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId")
+
+            LaunchedEffect(groupId) {
+                groupId?.let { groupViewModel.loadGroup(it) }
+            }
+
+            GroupDetailsScreen(
+                group = selectedGroup,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Profile screen
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onSignOut = {

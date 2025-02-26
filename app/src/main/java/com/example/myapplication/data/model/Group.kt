@@ -5,6 +5,7 @@ data class Group(
     val name: String = "",
     val createdBy: String = "",
     val members: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val pendingInvites: List<String> = emptyList()
 )
 
