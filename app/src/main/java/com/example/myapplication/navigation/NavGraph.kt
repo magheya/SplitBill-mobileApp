@@ -1,21 +1,18 @@
 package com.example.myapplication.navigation
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
+import androidx.navigation.*
+import androidx.navigation.compose.*
+import com.example.myapplication.data.model.Expense
+import com.example.myapplication.data.model.Group
+import com.example.myapplication.data.model.Member
 import com.example.myapplication.ui.auth.AuthScreen
 import com.example.myapplication.ui.groups.GroupsScreen
 import com.example.myapplication.ui.groups.GroupDetailsScreen
-import com.example.myapplication.ui.home.HomeScreen
 import com.example.myapplication.ui.profile.ProfileScreen
+import com.example.myapplication.ui.home.HomeScreen
 import com.example.myapplication.viewmodel.GroupViewModel
 import com.google.firebase.auth.FirebaseAuth
 
@@ -38,7 +35,6 @@ fun NavGraph(
 
     // Collect state from ViewModel
     val groups by groupViewModel.groups.collectAsState(initial = emptyList())
-    val availableMembers by groupViewModel.availableMembers.collectAsState(initial = emptyList())
     val selectedGroup by groupViewModel.selectedGroup.collectAsState()
 
     NavHost(
@@ -69,12 +65,10 @@ fun NavGraph(
         composable(Screen.Groups.route) {
             GroupsScreen(
                 groups = groups,
-                availableMembers = availableMembers,
-                onNavigateBack = { navController.popBackStack() },
-                onGroupSelected = { groupId ->
+                onGroupSelected = { groupId: String ->
                     navController.navigate(Screen.GroupDetails.createRoute(groupId))
                 },
-                onCreateGroup = { name, members ->
+                onCreateGroup = { name: String, members: List<Member> ->
                     groupViewModel.createGroup(
                         name = name,
                         members = members,
@@ -82,7 +76,8 @@ fun NavGraph(
                             navController.popBackStack()
                         }
                     )
-                }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -91,15 +86,29 @@ fun NavGraph(
             route = Screen.GroupDetails.route,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val groupId = backStackEntry.arguments?.getString("groupId")
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
 
             LaunchedEffect(groupId) {
-                groupId?.let { groupViewModel.loadGroup(it) }
+                groupViewModel.selectGroup(groupId)
             }
 
             GroupDetailsScreen(
                 group = selectedGroup,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onAddExpense = { expense ->
+                    groupViewModel.addExpense(selectedGroup?.id ?: return@GroupDetailsScreen, expense)
+                },
+                onAddMember = { member ->
+                    groupViewModel.addMember(selectedGroup?.id ?: return@GroupDetailsScreen, member)
+                },
+                onRemoveMember = { memberId ->
+                    groupViewModel.removeMember(selectedGroup?.id ?: return@GroupDetailsScreen, memberId)
+                },
+                onDeleteGroup = {
+                    groupViewModel.deleteGroup(selectedGroup?.id ?: return@GroupDetailsScreen) {
+                        navController.popBackStack()
+                    }
+                }
             )
         }
 
@@ -109,7 +118,7 @@ fun NavGraph(
                 onSignOut = {
                     FirebaseAuth.getInstance().signOut()
                     navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(Screen.Auth.route) { inclusive = true }
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }

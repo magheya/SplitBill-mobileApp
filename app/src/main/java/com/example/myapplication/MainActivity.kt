@@ -5,16 +5,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.navigation.NavGraph
-import androidx.compose.foundation.layout.padding
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 
 class MainActivity : ComponentActivity() {
+    private lateinit var auth: FirebaseAuth
+    private lateinit var database: FirebaseDatabase
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Firebase manually (since no Hilt)
+        auth = FirebaseAuth.getInstance()
+        database = FirebaseDatabase.getInstance()
+        database.setPersistenceEnabled(true)
+
         enableEdgeToEdge()
         setContent {
             val navController = rememberNavController()

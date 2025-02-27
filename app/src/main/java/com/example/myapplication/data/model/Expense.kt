@@ -5,8 +5,8 @@ data class Expense(
     val groupId: String = "",
     val amount: Double = 0.0,
     val description: String = "",
+    val category: ExpenseCategory = ExpenseCategory.OTHER,
     val paidBy: String = "",
-    val splitBetween: List<String> = emptyList(),
-    val category: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val participants: List<String> = emptyList(), // member ids
+    val splitAmounts: Map<String, Double> = emptyMap() // member id to amount
 )

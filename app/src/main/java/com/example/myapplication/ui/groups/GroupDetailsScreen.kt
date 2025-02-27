@@ -1,34 +1,36 @@
 package com.example.myapplication.ui.groups
 
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.myapplication.data.model.Group
-import java.text.SimpleDateFormat
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.*  // For fillMaxSize, fillMaxWidth, padding, Column, Spacer, height
+import androidx.compose.runtime.Composable  // For @Composable functions
+import androidx.compose.ui.Modifier  // For Modifier properties like fillMaxSize, fillMaxWidth
+import com.example.myapplication.data.model.*
 import java.util.*
-import androidx.compose.foundation.layout.*  // For Box, Column, fillMaxSize, padding
-import androidx.compose.foundation.lazy.LazyColumn  // For LazyColumn
-import androidx.compose.foundation.lazy.items  // For items in LazyColumn
-import androidx.compose.material3.AlertDialog  // For AlertDialog
-import androidx.compose.material3.CircularProgressIndicator  // For CircularProgressIndicator
-import androidx.compose.material3.ListItem  // For ListItem
-import androidx.compose.runtime.remember  // For remember state management
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailsScreen(
     group: Group?,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onAddExpense: (Expense) -> Unit,
+    onAddMember: (Member) -> Unit,
+    onRemoveMember: (String) -> Unit,
+    onDeleteGroup: () -> Unit
 ) {
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showConfirmDeleteDialog by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -46,8 +48,8 @@ fun GroupDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAddMemberDialog = true }) {
-                        Icon(Icons.Filled.PersonAdd, "Add Member")
+                    IconButton(onClick = { showAddExpenseDialog = true }) {
+                        Icon(Icons.Filled.Add, "Add Expense")
                     }
                     IconButton(onClick = { showConfirmDeleteDialog = true }) {
                         Icon(Icons.Filled.Delete, "Delete Group")
@@ -66,130 +68,61 @@ fun GroupDetailsScreen(
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp)
             ) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Group Information",
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            ListItem(
-                                headlineContent = { Text(group.name) },
-                                leadingContent = { Icon(Icons.Filled.Group, "Group Name") },
-                                overlineContent = { Text("NAME") }
-                            )
-                            ListItem(
-                                headlineContent = { Text("${group.members.size} members") },
-                                leadingContent = { Icon(Icons.Filled.People, "Members Count") },
-                                overlineContent = { Text("MEMBERS") }
-                            )
-                            if (group.createdBy.isNotEmpty()) {
-                                ListItem(
-                                    headlineContent = { Text(group.createdBy) },
-                                    leadingContent = { Icon(Icons.Filled.Person, "Created By") },
-                                    overlineContent = { Text("CREATED BY") }
-                                )
-                            }
-                        }
-                    }
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Overview") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Expenses") }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("Members") }
+                    )
                 }
 
-                if (group.members.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Members",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            TextButton(
-                                onClick = { showAddMemberDialog = true }
-                            ) {
-                                Icon(
-                                    Icons.Filled.Add,
-                                    contentDescription = "Add Member",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text("Add")
-                            }
-                        }
-                    }
-
-                    items(group.members) { memberId ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(memberId) },
-                                leadingContent = { Icon(Icons.Filled.Person, "Member") },
-                                trailingContent = {
-                                    if (memberId != group.createdBy) {
-                                        IconButton(onClick = { /* Handle remove member */ }) {
-                                            Icon(Icons.Filled.Close, "Remove Member")
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-
-                if (group.pendingInvites.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Pending Invites",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-
-                    items(group.pendingInvites) { email ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(email) },
-                                leadingContent = { Icon(Icons.Filled.Email, "Pending Invite") },
-                                trailingContent = {
-                                    IconButton(onClick = { /* Handle cancel invite */ }) {
-                                        Icon(Icons.Filled.Close, "Cancel Invite")
-                                    }
-                                }
-                            )
-                        }
-                    }
+                when (selectedTab) {
+                    0 -> GroupOverview(group)
+                    1 -> ExpensesList(group.expenses)
+                    2 -> MembersList(
+                        members = group.members,
+                        onAddMember = { showAddMemberDialog = true },
+                        onRemoveMember = onRemoveMember
+                    )
                 }
             }
         }
     }
 
+    if (showAddExpenseDialog) {
+        AddExpenseDialog(
+            members = group?.members ?: emptyList(),
+            onDismiss = { showAddExpenseDialog = false },
+            onConfirm = { expense ->
+                onAddExpense(expense)
+                showAddExpenseDialog = false
+            }
+        )
+    }
+
     if (showAddMemberDialog) {
-        // Add member dialog implementation
+        AddMemberDialog(
+            onDismiss = { showAddMemberDialog = false },
+            onConfirm = { member ->
+                onAddMember(member)
+                showAddMemberDialog = false
+            }
+        )
     }
 
     if (showConfirmDeleteDialog) {
@@ -200,15 +133,12 @@ fun GroupDetailsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Handle delete group
+                        onDeleteGroup()
                         showConfirmDeleteDialog = false
                         onNavigateBack()
                     }
                 ) {
-                    Text(
-                        text = "Delete",
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -217,5 +147,165 @@ fun GroupDetailsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun GroupOverview(group: Group) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Total Amount",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "$${String.format("%.2f", group.totalAmount)}",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Member Balances",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    group.members.forEach { member ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(member.name)
+                            val balance = member.paid - member.owes
+                            Text(
+                                text = "$${String.format("%.2f", balance)}",
+                                color = when {
+                                    balance > 0 -> MaterialTheme.colorScheme.primary
+                                    balance < 0 -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpensesList(expenses: List<Expense>) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        items(expenses) { expense ->
+            ExpenseCard(expense)
+        }
+    }
+}
+
+@Composable
+private fun ExpenseCard(expense: Expense) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = expense.description,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "$${String.format("%.2f", expense.amount)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            Text(
+                text = "Paid by: ${expense.paidBy}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = expense.category.name,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MembersList(
+    members: List<Member>,
+    onAddMember: () -> Unit,
+    onRemoveMember: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Members (${members.size})",
+                style = MaterialTheme.typography.titleMedium
+            )
+            TextButton(onClick = onAddMember) {
+                Icon(Icons.Filled.Add, "Add Member")
+                Spacer(Modifier.width(4.dp))
+                Text("Add")
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(members) { member ->
+                ListItem(
+                    headlineContent = { Text(member.name) },
+                    leadingContent = { Icon(Icons.Filled.Person, "Member") },
+                    trailingContent = {
+                        IconButton(onClick = { onRemoveMember(member.id) }) {
+                            Icon(Icons.Filled.Close, "Remove Member")
+                        }
+                    }
+                )
+            }
+        }
     }
 }

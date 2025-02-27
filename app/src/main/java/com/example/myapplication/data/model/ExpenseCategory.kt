@@ -4,6 +4,7 @@ enum class ExpenseCategory {
     FOOD,
     TRANSPORT,
     UTILITIES,
+    ACCOMMODATION,
     RENT,
     ENTERTAINMENT,
     SHOPPING,
