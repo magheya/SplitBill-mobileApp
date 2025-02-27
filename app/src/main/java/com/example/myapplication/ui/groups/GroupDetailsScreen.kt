@@ -106,7 +106,7 @@ fun GroupDetailsScreen(
 
     if (showAddExpenseDialog) {
         AddExpenseDialog(
-            members = group?.members ?: emptyList(),
+            members = group?.members?.values?.toList() ?: emptyList(), // Convert Map to List
             onDismiss = { showAddExpenseDialog = false },
             onConfirm = { expense ->
                 onAddExpense(expense)
@@ -190,7 +190,7 @@ private fun GroupOverview(group: Group) {
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    group.members.forEach { member ->
+                    group.members.values.forEach { member ->  // Changed to iterate over map values
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -267,7 +267,7 @@ private fun ExpenseCard(expense: Expense) {
 
 @Composable
 private fun MembersList(
-    members: List<Member>,
+    members: Map<String, Member>,  // Changed from List<Member> to Map<String, Member>
     onAddMember: () -> Unit,
     onRemoveMember: (String) -> Unit
 ) {
@@ -295,7 +295,7 @@ private fun MembersList(
         LazyColumn(
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(members) { member ->
+            items(members.values.toList()) { member ->  // Convert map values to list
                 ListItem(
                     headlineContent = { Text(member.name) },
                     leadingContent = { Icon(Icons.Filled.Person, "Member") },

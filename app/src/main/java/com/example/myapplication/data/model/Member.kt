@@ -5,4 +5,7 @@ data class Member(
     val name: String = "",
     val owes: Double = 0.0,
     val paid: Double = 0.0
-)
+)  {
+    // Required empty constructor for Firebase
+    constructor() : this("", "")
+}

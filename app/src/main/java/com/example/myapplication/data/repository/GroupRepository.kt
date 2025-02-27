@@ -15,4 +15,6 @@ interface GroupRepository {
     suspend fun getExpenses(groupId: String): List<Expense>
     suspend fun updateGroup(group: Group)
     suspend fun deleteGroup(groupId: String)
+    suspend fun addMember(groupId: String, member: Member)
+    suspend fun removeMember(groupId: String, memberId: String)
 }

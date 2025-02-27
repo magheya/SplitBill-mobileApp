@@ -4,9 +4,20 @@ data class Group(
     val id: String = "",
     val name: String = "",
     val createdBy: String = "",
-    val members: List<Member> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis(),
-    val expenses : List<Expense> = emptyList(),
+    val members: Map<String, Member> = emptyMap(), // Changed from List to Map
+    val expenses: List<Expense> = emptyList(),
     val totalAmount: Double = 0.0,
+    val createdAt: Long = System.currentTimeMillis(),
     val splitType: SplitType = SplitType.EQUAL
-)
+) {
+    constructor() : this(
+        id = "",
+        name = "",
+        createdBy = "",
+        members = emptyMap(),
+        expenses = emptyList(),
+        totalAmount = 0.0,
+        createdAt = System.currentTimeMillis(),
+        splitType = SplitType.EQUAL
+    )
+}

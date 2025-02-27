@@ -8,14 +8,17 @@ import com.example.myapplication.data.model.Member
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.example.myapplication.data.repository.GroupRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 import javax.inject.Inject
 
-class GroupViewModel(
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
+@HiltViewModel
+class GroupViewModel @Inject constructor(
+    private val groupRepository: GroupRepository,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
     private val _groups = MutableStateFlow<List<Group>>(emptyList())
     val groups: StateFlow<List<Group>> = _groups
@@ -24,23 +27,17 @@ class GroupViewModel(
     val selectedGroup: StateFlow<Group?> = _selectedGroup
 
     init {
-        loadGroups()
+        observeGroups()
     }
 
-    private fun loadGroups() {
-        database.reference.child("groups")
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val groupsList = snapshot.children.mapNotNull {
-                        it.getValue(Group::class.java)
-                    }
+    private fun observeGroups() {
+        viewModelScope.launch {
+            auth.currentUser?.uid?.let { userId ->
+                groupRepository.observeGroups(userId).collect { groupsList ->
                     _groups.value = groupsList
                 }
-
-                override fun onCancelled(error: DatabaseError) {
-                    // Handle error
-                }
-            })
+            }
+        }
     }
 
     fun selectGroup(groupId: String) {
@@ -48,72 +45,59 @@ class GroupViewModel(
     }
 
     fun createGroup(name: String, members: List<Member>, onSuccess: () -> Unit) {
-        val currentUser = auth.currentUser ?: return
-        val newGroup = Group(
-            id = database.reference.child("groups").push().key ?: return,
-            name = name,
-            createdBy = currentUser.uid,
-            members = members,
-            expenses = emptyList(),
-            totalAmount = 0.0,
-            createdAt = System.currentTimeMillis()
-        )
-
-        database.reference.child("groups").child(newGroup.id).setValue(newGroup)
-            .addOnSuccessListener { onSuccess() }
+        viewModelScope.launch {
+            try {
+                val currentUser = auth.currentUser ?: return@launch
+                val groupId = groupRepository.createGroup(
+                    name = name,
+                    createdBy = currentUser.uid,
+                    members = members
+                )
+                onSuccess()
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error creating group", e)
+            }
+        }
     }
 
     fun addExpense(groupId: String, expense: Expense) {
         viewModelScope.launch {
-            val groupRef = database.reference.child("groups").child(groupId)
-
-            // Create new expense with ID
-            val expenseId = groupRef.child("expenses").push().key ?: return@launch
-            val expenseWithId = expense.copy(id = expenseId)
-
-            // Update expenses list
-            groupRef.child("expenses").child(expenseId).setValue(expenseWithId)
-
-            // Update group total amount
-            val currentGroup = _selectedGroup.value ?: return@launch
-            val updatedGroup = currentGroup.copy(
-                expenses = currentGroup.expenses + expenseWithId,
-                totalAmount = currentGroup.totalAmount + expense.amount
-            )
-            groupRef.setValue(updatedGroup)
+            try {
+                groupRepository.addExpense(groupId, expense)
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error adding expense", e)
+            }
         }
     }
 
     fun addMember(groupId: String, member: Member) {
         viewModelScope.launch {
-            val currentGroup = _selectedGroup.value ?: return@launch
-            val updatedMembers = currentGroup.members + member
-
-            database.reference.child("groups")
-                .child(groupId)
-                .child("members")
-                .setValue(updatedMembers)
+            try {
+                groupRepository.addMember(groupId, member)
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error adding member", e)
+            }
         }
     }
 
     fun removeMember(groupId: String, memberId: String) {
         viewModelScope.launch {
-            val currentGroup = _selectedGroup.value ?: return@launch
-            val updatedMembers = currentGroup.members.filter { it.id != memberId }
-
-            database.reference.child("groups")
-                .child(groupId)
-                .child("members")
-                .setValue(updatedMembers)
+            try {
+                groupRepository.removeMember(groupId, memberId)
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error removing member", e)
+            }
         }
     }
 
     fun deleteGroup(groupId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            database.reference.child("groups")
-                .child(groupId)
-                .removeValue()
-                .addOnSuccessListener { onSuccess() }
+            try {
+                groupRepository.deleteGroup(groupId)
+                onSuccess()
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error deleting group", e)
+            }
         }
     }
 

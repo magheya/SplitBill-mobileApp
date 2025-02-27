@@ -13,19 +13,19 @@ import com.example.myapplication.navigation.NavGraph
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private lateinit var auth: FirebaseAuth
-    private lateinit var database: FirebaseDatabase
+    @Inject
+    lateinit var auth: FirebaseAuth
+
+    @Inject
+    lateinit var database: FirebaseDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Initialize Firebase manually (since no Hilt)
-        auth = FirebaseAuth.getInstance()
-        database = FirebaseDatabase.getInstance()
-        database.setPersistenceEnabled(true)
-
         enableEdgeToEdge()
         setContent {
             val navController = rememberNavController()
