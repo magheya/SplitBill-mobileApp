@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface GroupRepository {
     suspend fun createGroup(name: String, createdBy: String, members: List<Member>): String
     fun observeGroups(userId: String): Flow<List<Group>>
+    fun observeGroup(groupId: String): Flow<Group?>
     suspend fun addExpense(groupId: String, expense: Expense)
     fun observeExpenses(groupId: String): Flow<List<Expense>>
     suspend fun calculateBalances(groupId: String): Map<String, Double>

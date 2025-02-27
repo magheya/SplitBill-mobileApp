@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import com.example.myapplication.data.model.*
 import android.util.Log
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +22,7 @@ class FirebaseGroupRepository @Inject constructor(
     private val auth: FirebaseAuth
 ) : GroupRepository {
     private val groupsRef = database.reference.child("groups")
+    private val userGroupsRef = database.reference.child("user_groups")
 
     override suspend fun createGroup(name: String, createdBy: String, members: List<Member>): String {
         try {
@@ -29,17 +31,28 @@ class FirebaseGroupRepository @Inject constructor(
 
             val membersMap = members.associateBy { it.id }
 
+
             val group = Group(
                 id = groupId,
                 name = name,
                 createdBy = createdBy,
                 members = membersMap,
-                expenses = emptyList(),
+                expenses = emptyMap(),
                 totalAmount = 0.0,
                 createdAt = System.currentTimeMillis()
             )
 
+            // Create group in groups node
             groupsRef.child(groupId).setValue(group).await()
+
+            // Add group reference to creator's user_groups node
+            userGroupsRef.child(createdBy).child(groupId).setValue(true).await()
+
+            // Add group reference to all members' user_groups node
+            members.forEach { member ->
+                userGroupsRef.child(member.id).child(groupId).setValue(true).await()
+            }
+
             Log.d("FirebaseGroupRepository", "Group created successfully")
             return groupId
         } catch (e: Exception) {
@@ -49,51 +62,86 @@ class FirebaseGroupRepository @Inject constructor(
     }
 
     override fun observeGroups(userId: String): Flow<List<Group>> = callbackFlow {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
+        var groupsListener: ValueEventListener? = null
+
+        val userGroupsListener = object : ValueEventListener {
+            override fun onDataChange(userGroupsSnapshot: DataSnapshot) {
                 try {
-                    val groups = snapshot.children.mapNotNull { groupSnapshot ->
-                        groupSnapshot.getValue(Group::class.java)?.copy(
-                            id = groupSnapshot.key ?: return@mapNotNull null
-                        )
+                    // Get all group IDs for the user
+                    val groupIds = userGroupsSnapshot.children.mapNotNull { it.key }
+
+                    if (groupIds.isEmpty()) {
+                        trySend(emptyList())
+                        return
                     }
-                    trySend(groups)
+
+                    // Remove previous listener if exists
+                    groupsListener?.let { groupsRef.removeEventListener(it) }
+
+                    // Create a new listener for the groups
+                    groupsListener = object : ValueEventListener {
+                        override fun onDataChange(groupsSnapshot: DataSnapshot) {
+                            val groups = groupIds.mapNotNull { groupId ->
+                                groupsSnapshot.child(groupId).getValue(Group::class.java)?.copy(
+                                    id = groupId
+                                )
+                            }
+                            trySend(groups)
+                        }
+
+                        override fun onCancelled(error: DatabaseError) {
+                            Log.e("FirebaseGroupRepository", "Error observing groups", error.toException())
+                            trySend(emptyList())
+                        }
+                    }
+
+                    // Add listener for groups
+                    groupsListener?.let { groupsRef.addValueEventListener(it) }
+
                 } catch (e: Exception) {
-                    Log.e("FirebaseGroupRepository", "Error parsing groups", e)
+                    Log.e("FirebaseGroupRepository", "Error parsing user groups", e)
                     trySend(emptyList())
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("FirebaseGroupRepository", "Error observing groups", error.toException())
+                Log.e("FirebaseGroupRepository", "Error observing user groups", error.toException())
                 trySend(emptyList())
             }
         }
 
-        groupsRef.addValueEventListener(listener)
-        awaitClose { groupsRef.removeEventListener(listener) }
+        // Add listener for user's groups
+        userGroupsRef.child(userId).addValueEventListener(userGroupsListener)
+
+        // Remove all listeners when flow is cancelled
+        awaitClose {
+            userGroupsRef.child(userId).removeEventListener(userGroupsListener)
+            groupsListener?.let { groupsRef.removeEventListener(it) }
+        }
     }
 
-    override suspend fun addExpense(groupId: String, expense: Expense) {
-        try {
-            val expenseId = groupsRef.child(groupId)
-                .child("expenses")
-                .push()
-                .key ?: throw IllegalStateException("Couldn't get push key")
+    override fun observeGroup(groupId: String): Flow<Group?> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val group = snapshot.getValue(Group::class.java)?.copy(
+                        id = snapshot.key ?: return
+                    )
+                    trySend(group)
+                } catch (e: Exception) {
+                    Log.e("FirebaseGroupRepository", "Error parsing group", e)
+                    trySend(null)
+                }
+            }
 
-            val expenseWithId = expense.copy(id = expenseId)
-
-            val updates = hashMapOf<String, Any>(
-                "expenses/$expenseId" to expenseWithId,
-                "totalAmount" to ServerValue.increment(expense.amount)
-            )
-
-            groupsRef.child(groupId).updateChildren(updates).await()
-            Log.d("FirebaseGroupRepository", "Expense added successfully")
-        } catch (e: Exception) {
-            Log.e("FirebaseGroupRepository", "Error adding expense", e)
-            throw e
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("FirebaseGroupRepository", "Error observing group", error.toException())
+                trySend(null)
+            }
         }
+
+        groupsRef.child(groupId).addValueEventListener(listener)
+        awaitClose { groupsRef.child(groupId).removeEventListener(listener) }
     }
 
     override fun observeExpenses(groupId: String): Flow<List<Expense>> = callbackFlow {
@@ -108,27 +156,79 @@ class FirebaseGroupRepository @Inject constructor(
                         Log.e("FirebaseGroupRepository", "Error parsing expense", e)
                         null
                     }
-                }
+                }.sortedByDescending { it.createdAt } // Sort by date
                 trySend(expenses)
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e("FirebaseGroupRepository", "Error observing expenses", error.toException())
-                close(error.toException())
+                trySend(emptyList())
             }
         }
+
         groupsRef.child(groupId).child("expenses").addValueEventListener(listener)
         awaitClose {
             groupsRef.child(groupId).child("expenses").removeEventListener(listener)
         }
     }
 
+    override suspend fun getExpenses(groupId: String): List<Expense> {
+        return try {
+            val snapshot = groupsRef.child(groupId).child("expenses").get().await()
+            snapshot.children.mapNotNull { childSnapshot ->
+                try {
+                    childSnapshot.getValue(Expense::class.java)?.copy(
+                        id = childSnapshot.key ?: return@mapNotNull null
+                    )
+                } catch (e: Exception) {
+                    Log.e("FirebaseGroupRepository", "Error parsing expense", e)
+                    null
+                }
+            }.sortedByDescending { it.createdAt }
+        } catch (e: Exception) {
+            Log.e("FirebaseGroupRepository", "Error getting expenses", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun addExpense(groupId: String, expense: Expense) {
+        try {
+            val expenseId = groupsRef.child(groupId)
+                .child("expenses")
+                .push()
+                .key ?: throw IllegalStateException("Couldn't get push key")
+
+            val expenseWithId = expense.copy(
+                id = expenseId,
+                createdAt = System.currentTimeMillis()
+            )
+
+            val updates = hashMapOf<String, Any>(
+                "/expenses/$expenseId" to expenseWithId,
+                "/totalAmount" to ServerValue.increment(expense.amount)
+            )
+
+            groupsRef.child(groupId).updateChildren(updates).await()
+            Log.d("FirebaseGroupRepository", "Expense added successfully")
+        } catch (e: Exception) {
+            Log.e("FirebaseGroupRepository", "Error adding expense", e)
+            throw e
+        }
+    }
+
     override suspend fun addMember(groupId: String, member: Member) {
         try {
+            // Add member to group's members
             groupsRef.child(groupId)
                 .child("members")
                 .child(member.id)
                 .setValue(member)
+                .await()
+
+            // Add group reference to member's user_groups
+            userGroupsRef.child(member.id)
+                .child(groupId)
+                .setValue(true)
                 .await()
         } catch (e: Exception) {
             Log.e("FirebaseGroupRepository", "Error adding member", e)
@@ -138,9 +238,16 @@ class FirebaseGroupRepository @Inject constructor(
 
     override suspend fun removeMember(groupId: String, memberId: String) {
         try {
+            // Remove member from group's members
             groupsRef.child(groupId)
                 .child("members")
                 .child(memberId)
+                .removeValue()
+                .await()
+
+            // Remove group reference from member's user_groups
+            userGroupsRef.child(memberId)
+                .child(groupId)
                 .removeValue()
                 .await()
         } catch (e: Exception) {
@@ -161,24 +268,6 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
-    override suspend fun getExpenses(groupId: String): List<Expense> {
-        return try {
-            val snapshot = groupsRef.child(groupId).child("expenses").get().await()
-            snapshot.children.mapNotNull { childSnapshot ->
-                try {
-                    childSnapshot.getValue(Expense::class.java)?.copy(
-                        id = childSnapshot.key ?: return@mapNotNull null
-                    )
-                } catch (e: Exception) {
-                    Log.e("FirebaseGroupRepository", "Error parsing expense", e)
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("FirebaseGroupRepository", "Error getting expenses", e)
-            emptyList()
-        }
-    }
 
     override suspend fun calculateBalances(groupId: String): Map<String, Double> {
         return try {
@@ -210,7 +299,28 @@ class FirebaseGroupRepository @Inject constructor(
 
     override suspend fun deleteGroup(groupId: String) {
         try {
-            groupsRef.child(groupId).removeValue().await()
+            // Get the group first to get all members
+            val group = getGroup(groupId) ?: throw IllegalStateException("Group not found")
+
+            // Remove group reference from all members' user_groups
+            group.members.keys.forEach { memberId ->
+                userGroupsRef.child(memberId)
+                    .child(groupId)
+                    .removeValue()
+                    .await()
+            }
+
+            // Remove group reference from creator's user_groups
+            userGroupsRef.child(group.createdBy)
+                .child(groupId)
+                .removeValue()
+                .await()
+
+            // Delete the group
+            groupsRef.child(groupId)
+                .removeValue()
+                .await()
+
             Log.d("FirebaseGroupRepository", "Group deleted successfully")
         } catch (e: Exception) {
             Log.e("FirebaseGroupRepository", "Error deleting group", e)
