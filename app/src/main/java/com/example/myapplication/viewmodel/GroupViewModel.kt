@@ -105,13 +105,14 @@ class GroupViewModel @Inject constructor(
         val currentGroup = _selectedGroup.value ?: return emptyMap()
         val balances = mutableMapOf<String, Double>()
 
-        currentGroup.expenses.forEach { expense ->
+        // Access expenses as Map entries
+        currentGroup.expenses.forEach { (_, expense) ->
             // Add the full amount to the payer's balance
             balances[expense.paidBy] = (balances[expense.paidBy] ?: 0.0) + expense.amount
 
             // Subtract each participant's share
-            expense.splitAmounts.forEach { (participantId, amount) ->
-                balances[participantId] = (balances[participantId] ?: 0.0) - amount
+            expense.splitAmounts.forEach { (participantId, splitAmount) ->
+                balances[participantId] = (balances[participantId] ?: 0.0) - splitAmount
             }
         }
 

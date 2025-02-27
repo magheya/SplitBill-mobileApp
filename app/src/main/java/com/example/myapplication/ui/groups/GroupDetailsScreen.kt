@@ -93,7 +93,7 @@ fun GroupDetailsScreen(
 
                 when (selectedTab) {
                     0 -> GroupOverview(group)
-                    1 -> ExpensesList(group.expenses)
+                    1 -> ExpensesList(group.expenses.values.toList()) // Convert Map to List here
                     2 -> MembersList(
                         members = group.members,
                         onAddMember = { showAddMemberDialog = true },
