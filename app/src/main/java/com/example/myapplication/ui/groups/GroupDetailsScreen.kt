@@ -154,7 +154,10 @@ fun GroupDetailsScreen(
                         group = group,
                         balances = balances
                     )
-                    1 -> ExpensesList(group.expenses.values.toList())
+                    1 -> ExpensesList(
+                        expenses = group.expenses.values.toList(),
+                        members = group.members  // Pass the members map
+                    )
                     2 -> MembersList(
                         members = group.members,
                         onAddMember = { showAddMemberDialog = true },
@@ -313,20 +316,26 @@ private fun BalanceRow(
 }
 
 @Composable
-private fun ExpensesList(expenses: List<Expense>) {
+private fun ExpensesList(
+    expenses: List<Expense>,
+    members: Map<String, Member>  // Add this parameter
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
         items(expenses) { expense ->
-            ExpenseCard(expense)
+            ExpenseCard(expense, members)  // Pass members to ExpenseCard
         }
     }
 }
 
 @Composable
-private fun ExpenseCard(expense: Expense) {
+private fun ExpenseCard(
+    expense: Expense,
+    members: Map<String, Member>  // Add this parameter
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -349,7 +358,7 @@ private fun ExpenseCard(expense: Expense) {
                 )
             }
             Text(
-                text = "Paid by: ${expense.paidBy}",
+                text = "Paid by: ${members[expense.paidBy]?.name ?: "Unknown"}",  // Use member name
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
