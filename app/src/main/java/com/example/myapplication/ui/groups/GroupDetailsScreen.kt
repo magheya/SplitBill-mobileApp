@@ -16,17 +16,23 @@ import androidx.compose.runtime.Composable  // For @Composable functions
 import androidx.compose.ui.Modifier  // For Modifier properties like fillMaxSize, fillMaxWidth
 import com.example.myapplication.data.model.*
 import java.util.*
+import com.example.myapplication.viewmodel.GroupViewModel
+import com.example.myapplication.ui.groups.AddMemberDialog
+import com.example.myapplication.ui.groups.AddExpenseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailsScreen(
-    group: Group?,
+    viewModel: GroupViewModel,
+    groupId: String,
     onNavigateBack: () -> Unit,
     onAddExpense: (Expense) -> Unit,
     onAddMember: (Member) -> Unit,
     onRemoveMember: (String) -> Unit,
     onDeleteGroup: () -> Unit
 ) {
+    val group = viewModel.selectedGroup.collectAsState().value
+    val balances = viewModel.calculateMemberBalances(groupId)
     var showAddMemberDialog by remember { mutableStateOf(false) }
     var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showConfirmDeleteDialog by remember { mutableStateOf(false) }
@@ -92,8 +98,11 @@ fun GroupDetailsScreen(
                 }
 
                 when (selectedTab) {
-                    0 -> GroupOverview(group)
-                    1 -> ExpensesList(group.expenses.values.toList()) // Convert Map to List here
+                    0 -> GroupOverview(
+                        group = group,
+                        balances = balances
+                    )
+                    1 -> ExpensesList(group.expenses.values.toList())
                     2 -> MembersList(
                         members = group.members,
                         onAddMember = { showAddMemberDialog = true },
@@ -104,9 +113,9 @@ fun GroupDetailsScreen(
         }
     }
 
-    if (showAddExpenseDialog) {
+    if (showAddExpenseDialog && group != null) {
         AddExpenseDialog(
-            members = group?.members?.values?.toList() ?: emptyList(), // Convert Map to List
+            members = group.members.values.toList(),
             onDismiss = { showAddExpenseDialog = false },
             onConfirm = { expense ->
                 onAddExpense(expense)
@@ -151,66 +160,95 @@ fun GroupDetailsScreen(
 }
 
 @Composable
-private fun GroupOverview(group: Group) {
-    LazyColumn(
+private fun GroupOverview(
+    group: Group,
+    balances: Map<String, Balance>
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Total Amount",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "$${String.format("%.2f", group.totalAmount)}",
-                        style = MaterialTheme.typography.headlineMedium
+                Text(
+                    text = "Total Amount",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "$${String.format("%.2f", group.totalAmount)}",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Member Balances",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                group.members.forEach { (memberId, member) ->
+                    val memberBalance = balances[memberId]
+                    BalanceRow(
+                        name = member.name,
+                        balance = memberBalance?.netBalance ?: 0.0,
+                        paid = memberBalance?.totalPaid ?: 0.0,
+                        owes = memberBalance?.totalOwes ?: 0.0
                     )
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Member Balances",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    group.members.values.forEach { member ->  // Changed to iterate over map values
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(member.name)
-                            val balance = member.paid - member.owes
-                            Text(
-                                text = "$${String.format("%.2f", balance)}",
-                                color = when {
-                                    balance > 0 -> MaterialTheme.colorScheme.primary
-                                    balance < 0 -> MaterialTheme.colorScheme.error
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        }
-                    }
+@Composable
+private fun BalanceRow(
+    name: String,
+    balance: Double,
+    paid: Double,
+    owes: Double
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(name)
+            Text(
+                text = "$${String.format("%.2f", balance)}",
+                color = when {
+                    balance > 0 -> MaterialTheme.colorScheme.primary
+                    balance < 0 -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface
                 }
-            }
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Paid: $${String.format("%.2f", paid)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Owes: $${String.format("%.2f", owes)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -267,7 +305,7 @@ private fun ExpenseCard(expense: Expense) {
 
 @Composable
 private fun MembersList(
-    members: Map<String, Member>,  // Changed from List<Member> to Map<String, Member>
+    members: Map<String, Member>,
     onAddMember: () -> Unit,
     onRemoveMember: (String) -> Unit
 ) {
@@ -295,7 +333,7 @@ private fun MembersList(
         LazyColumn(
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(members.values.toList()) { member ->  // Convert map values to list
+            items(members.values.toList()) { member ->
                 ListItem(
                     headlineContent = { Text(member.name) },
                     leadingContent = { Icon(Icons.Filled.Person, "Member") },

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.model.Group
 import com.example.myapplication.data.model.Expense
 import com.example.myapplication.data.model.Member
+import com.example.myapplication.data.model.Balance
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -101,21 +102,33 @@ class GroupViewModel @Inject constructor(
         }
     }
 
-    fun calculateBalances(groupId: String): Map<String, Double> {
+    fun calculateMemberBalances(groupId: String): Map<String, Balance> {
         val currentGroup = _selectedGroup.value ?: return emptyMap()
-        val balances = mutableMapOf<String, Double>()
+        val balances = mutableMapOf<String, Balance>()
 
-        // Access expenses as Map entries
+        // Initialize balances for all members
+        currentGroup.members.keys.forEach { memberId ->
+            balances[memberId] = Balance()
+        }
+
         currentGroup.expenses.forEach { (_, expense) ->
-            // Add the full amount to the payer's balance
-            balances[expense.paidBy] = (balances[expense.paidBy] ?: 0.0) + expense.amount
+            // Add the amount paid to payer's balance
+            val payer = expense.paidBy
+            balances[payer] = balances[payer]?.let {
+                it.copy(totalPaid = it.totalPaid + expense.amount)
+            } ?: Balance(totalPaid = expense.amount)
 
-            // Subtract each participant's share
+            // Add owed amounts to each participant
             expense.splitAmounts.forEach { (participantId, splitAmount) ->
-                balances[participantId] = (balances[participantId] ?: 0.0) - splitAmount
+                balances[participantId] = balances[participantId]?.let {
+                    it.copy(totalOwes = it.totalOwes + splitAmount)
+                } ?: Balance(totalOwes = splitAmount)
             }
         }
 
-        return balances
+        // Calculate net balance for each member
+        return balances.mapValues { (_, balance) ->
+            balance.copy(netBalance = balance.totalPaid - balance.totalOwes)
+        }
     }
 }

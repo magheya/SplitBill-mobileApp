@@ -29,7 +29,7 @@ sealed class Screen(val route: String) {
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val groupViewModel: GroupViewModel = viewModel()
 
@@ -65,10 +65,10 @@ fun NavGraph(
         composable(Screen.Groups.route) {
             GroupsScreen(
                 groups = groups,
-                onGroupSelected = { groupId: String ->
+                onGroupSelected = { groupId ->
                     navController.navigate(Screen.GroupDetails.createRoute(groupId))
                 },
-                onCreateGroup = { name: String, members: List<Member> ->
+                onCreateGroup = { name, members ->
                     groupViewModel.createGroup(
                         name = name,
                         members = members,
@@ -93,19 +93,20 @@ fun NavGraph(
             }
 
             GroupDetailsScreen(
-                group = selectedGroup,
+                viewModel = groupViewModel,
+                groupId = groupId,
                 onNavigateBack = { navController.popBackStack() },
                 onAddExpense = { expense ->
-                    groupViewModel.addExpense(selectedGroup?.id ?: return@GroupDetailsScreen, expense)
+                    groupViewModel.addExpense(groupId, expense)
                 },
                 onAddMember = { member ->
-                    groupViewModel.addMember(selectedGroup?.id ?: return@GroupDetailsScreen, member)
+                    groupViewModel.addMember(groupId, member)
                 },
                 onRemoveMember = { memberId ->
-                    groupViewModel.removeMember(selectedGroup?.id ?: return@GroupDetailsScreen, memberId)
+                    groupViewModel.removeMember(groupId, memberId)
                 },
                 onDeleteGroup = {
-                    groupViewModel.deleteGroup(selectedGroup?.id ?: return@GroupDetailsScreen) {
+                    groupViewModel.deleteGroup(groupId) {
                         navController.popBackStack()
                     }
                 }
