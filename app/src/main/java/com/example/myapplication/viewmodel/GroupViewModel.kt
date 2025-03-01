@@ -65,6 +65,8 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 groupRepository.addExpense(groupId, expense)
+                // Re-select the group to refresh the data
+                selectGroup(groupId)
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error adding expense", e)
             }
@@ -75,6 +77,8 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 groupRepository.addMember(groupId, member)
+                // Re-select the group to refresh the data
+                selectGroup(groupId)
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error adding member", e)
             }

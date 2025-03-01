@@ -73,7 +73,7 @@ fun NavGraph(
                         name = name,
                         members = members,
                         onSuccess = {
-                            navController.popBackStack()
+                            //navController.popBackStack()
                         }
                     )
                 },

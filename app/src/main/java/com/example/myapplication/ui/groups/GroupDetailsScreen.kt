@@ -51,6 +51,7 @@ fun GroupDetailsScreen(
     var exportMessage by remember { mutableStateOf("") }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
 
     Scaffold(
         topBar = {
