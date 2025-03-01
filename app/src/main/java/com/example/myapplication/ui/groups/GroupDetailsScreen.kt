@@ -19,6 +19,15 @@ import java.util.*
 import com.example.myapplication.viewmodel.GroupViewModel
 import com.example.myapplication.ui.groups.AddMemberDialog
 import com.example.myapplication.ui.groups.AddExpenseDialog
+import android.content.Context
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import com.example.myapplication.util.PdfExporter
+import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,12 +40,17 @@ fun GroupDetailsScreen(
     onRemoveMember: (String) -> Unit,
     onDeleteGroup: () -> Unit
 ) {
+    val context = LocalContext.current
     val group = viewModel.selectedGroup.collectAsState().value
     val balances = viewModel.calculateMemberBalances(groupId)
     var showAddMemberDialog by remember { mutableStateOf(false) }
     var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showConfirmDeleteDialog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
+    var showExportSnackbar by remember { mutableStateOf(false) }
+    var exportMessage by remember { mutableStateOf("") }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         topBar = {
@@ -54,6 +68,40 @@ fun GroupDetailsScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            group?.let { safeGroup ->
+                                PdfExporter().exportGroupDetails(
+                                    context = context,
+                                    group = safeGroup,
+                                    balances = balances,
+                                    onComplete = { filePath ->
+                                        val file = File(filePath)
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file
+                                        )
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, "application/pdf")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(
+                                            Intent.createChooser(intent, "Open PDF")
+                                        )
+                                        exportMessage = "PDF exported and opened"
+                                        showExportSnackbar = true
+                                    },
+                                    onError = { error ->
+                                        exportMessage = "Failed to export PDF: ${error.message}"
+                                        showExportSnackbar = true
+                                    }
+                                )
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Filled.Save, "Export PDF")
+                    }
                     IconButton(onClick = { showAddExpenseDialog = true }) {
                         Icon(Icons.Filled.Add, "Add Expense")
                     }
@@ -62,6 +110,9 @@ fun GroupDetailsScreen(
                     }
                 }
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { paddingValues ->
         if (group == null) {
@@ -110,6 +161,13 @@ fun GroupDetailsScreen(
                     )
                 }
             }
+        }
+    }
+
+    LaunchedEffect(showExportSnackbar) {
+        if (showExportSnackbar) {
+            snackbarHostState.showSnackbar(exportMessage)
+            showExportSnackbar = false
         }
     }
 
@@ -347,3 +405,4 @@ private fun MembersList(
         }
     }
 }
+
