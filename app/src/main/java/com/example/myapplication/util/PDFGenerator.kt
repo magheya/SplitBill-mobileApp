@@ -64,13 +64,17 @@ class PdfExporter {
                     balanceTable.addHeaderCell("Owes")
                     balanceTable.addHeaderCell("Net Balance")
 
-                    // Add member rows
+                    // Add member rows with fixed owes logic
                     group.members.forEach { (memberId, member) ->
                         val memberBalance = balances[memberId]
+                        val netBalance = memberBalance?.netBalance ?: 0.0
+
                         balanceTable.addCell(member.name)
                         balanceTable.addCell("$${String.format("%.2f", memberBalance?.totalPaid ?: 0.0)}")
-                        balanceTable.addCell("$${String.format("%.2f", memberBalance?.totalOwes ?: 0.0)}")
-                        balanceTable.addCell("$${String.format("%.2f", memberBalance?.netBalance ?: 0.0)}")
+                        balanceTable.addCell(
+                            if (netBalance < 0) "$${String.format("%.2f", -netBalance)}" else "$0.00"
+                        )
+                        balanceTable.addCell("$${String.format("%.2f", netBalance)}")
                     }
 
                     document.add(balanceTable)
