@@ -18,6 +18,9 @@ import com.example.myapplication.data.model.ExpenseCategory
 import com.example.myapplication.data.model.Member
 import com.example.myapplication.data.model.SplitType
 import java.util.*
+//vertical scroll and rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,9 +35,29 @@ fun AddExpenseDialog(
     var paidById by remember { mutableStateOf("") }
     var selectedParticipants by remember { mutableStateOf(members.map { it.id }.toSet()) }
     var splitType by remember { mutableStateOf(SplitType.EQUAL) }
-    var customSplitAmounts by remember { mutableStateOf(emptyMap<String, String>()) }
+    var customSplitAmounts by remember { mutableStateOf(members.associate { it.id to "" }) }
+    var percentageSplitAmounts by remember { mutableStateOf(members.associate { it.id to "" }) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showPaidByDropdown by remember { mutableStateOf(false) }
+
+    // Validation functions
+    fun validateCustomSplits(): Boolean {
+        val total = customSplitAmounts
+            .filterKeys { selectedParticipants.contains(it) }
+            .values
+            .mapNotNull { it.toDoubleOrNull() }
+            .sum()
+        return total == (amount.toDoubleOrNull() ?: 0.0)
+    }
+
+    fun validatePercentageSplits(): Boolean {
+        val total = percentageSplitAmounts
+            .filterKeys { selectedParticipants.contains(it) }
+            .values
+            .mapNotNull { it.toDoubleOrNull() }
+            .sum()
+        return total == 100.0
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -43,6 +66,7 @@ fun AddExpenseDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp)
             ) {
                 OutlinedTextField(
@@ -64,7 +88,6 @@ fun AddExpenseDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Category Dropdown
                 ExposedDropdownMenuBox(
                     expanded = showCategoryDropdown,
                     onExpandedChange = { showCategoryDropdown = !showCategoryDropdown }
@@ -73,9 +96,7 @@ fun AddExpenseDialog(
                         value = selectedCategory.name,
                         onValueChange = {},
                         readOnly = true,
-                        trailingIcon = {
-                            Icon(Icons.Filled.KeyboardArrowDown, "Show categories")
-                        },
+                        trailingIcon = { Icon(Icons.Filled.KeyboardArrowDown, "Show categories") },
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
@@ -100,7 +121,6 @@ fun AddExpenseDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Paid By Dropdown
                 ExposedDropdownMenuBox(
                     expanded = showPaidByDropdown,
                     onExpandedChange = { showPaidByDropdown = !showPaidByDropdown }
@@ -109,9 +129,7 @@ fun AddExpenseDialog(
                         value = members.find { it.id == paidById }?.name ?: "",
                         onValueChange = {},
                         readOnly = true,
-                        trailingIcon = {
-                            Icon(Icons.Filled.KeyboardArrowDown, "Show members")
-                        },
+                        trailingIcon = { Icon(Icons.Filled.KeyboardArrowDown, "Show members") },
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
@@ -136,7 +154,6 @@ fun AddExpenseDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Split Type Selection
                 Text("Split Type", style = MaterialTheme.typography.titleSmall)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,14 +170,12 @@ fun AddExpenseDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Participants Selection with scrollable list
                 Text("Participants", style = MaterialTheme.typography.titleSmall)
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 200.dp)
                 ) {
-                    items(members) { member ->
+                    members.forEach { member ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -181,21 +196,72 @@ fun AddExpenseDialog(
                             )
                         }
 
-                        if (splitType == SplitType.CUSTOM) {
-                            OutlinedTextField(
-                                value = customSplitAmounts[member.id] ?: "",
-                                onValueChange = { value ->
-                                    if (value.isEmpty() || value.toDoubleOrNull() != null) {
-                                        customSplitAmounts = customSplitAmounts + (member.id to value)
-                                    }
-                                },
-                                label = { Text("Amount for ${member.name}") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            )
+                        if (selectedParticipants.contains(member.id)) {
+                            when (splitType) {
+                                SplitType.EQUAL -> {
+                                    val equalShare = amount.toDoubleOrNull()?.let {
+                                        it / selectedParticipants.size
+                                    } ?: 0.0
+                                    Text(
+                                        "Will pay: ${String.format("%.2f", equalShare)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                                    )
+                                }
+                                SplitType.CUSTOM -> {
+                                    OutlinedTextField(
+                                        value = customSplitAmounts[member.id] ?: "",
+                                        onValueChange = { value ->
+                                            if (value.isEmpty() || value.toDoubleOrNull() != null) {
+                                                customSplitAmounts = customSplitAmounts + (member.id to value)
+                                            }
+                                        },
+                                        label = { Text("Amount") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 8.dp)
+                                    )
+                                }
+                                SplitType.PERCENTAGE -> {
+                                    OutlinedTextField(
+                                        value = percentageSplitAmounts[member.id] ?: "",
+                                        onValueChange = { value ->
+                                            if (value.isEmpty() || (value.toDoubleOrNull() != null && value.toDouble() <= 100)) {
+                                                percentageSplitAmounts = percentageSplitAmounts + (member.id to value)
+                                            }
+                                        },
+                                        label = { Text("Percentage") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 8.dp)
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    when (splitType) {
+                        SplitType.CUSTOM -> {
+                            if (!validateCustomSplits()) {
+                                Text(
+                                    "Total must equal ${amount}",
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
+                        }
+                        SplitType.PERCENTAGE -> {
+                            if (!validatePercentageSplits()) {
+                                Text(
+                                    "Percentages must sum to 100%",
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
+                        }
+                        else -> {}
                     }
                 }
             }
@@ -210,10 +276,17 @@ fun AddExpenseDialog(
                             selectedParticipants.associateWith { splitAmount }
                         }
                         SplitType.CUSTOM -> {
-                            customSplitAmounts.mapValues { it.value.toDoubleOrNull() ?: 0.0 }
+                            customSplitAmounts
+                                .filterKeys { selectedParticipants.contains(it) }
+                                .mapValues { it.value.toDoubleOrNull() ?: 0.0 }
                         }
                         SplitType.PERCENTAGE -> {
-                            emptyMap() // Implement if needed
+                            percentageSplitAmounts
+                                .filterKeys { selectedParticipants.contains(it) }
+                                .mapValues { (_, percentage) ->
+                                    val percentageValue = percentage.toDoubleOrNull() ?: 0.0
+                                    (percentageValue / 100.0) * amountValue
+                                }
                         }
                     }
 
@@ -232,7 +305,12 @@ fun AddExpenseDialog(
                 enabled = description.isNotBlank() &&
                         amount.isNotBlank() &&
                         paidById.isNotBlank() &&
-                        selectedParticipants.isNotEmpty()
+                        selectedParticipants.isNotEmpty() &&
+                        when (splitType) {
+                            SplitType.EQUAL -> true
+                            SplitType.CUSTOM -> validateCustomSplits()
+                            SplitType.PERCENTAGE -> validatePercentageSplits()
+                        }
             ) {
                 Text("Add")
             }

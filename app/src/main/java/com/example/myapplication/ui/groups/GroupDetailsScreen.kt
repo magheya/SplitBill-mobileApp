@@ -53,6 +53,8 @@ fun GroupDetailsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val selectedGroup by viewModel.selectedGroup.collectAsState()
 
+    val settlements by viewModel.settlements.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -152,7 +154,8 @@ fun GroupDetailsScreen(
                 when (selectedTab) {
                     0 -> GroupOverview(
                         group = group,
-                        balances = balances
+                        balances = balances,
+                        settlements = settlements
                     )
                     1 -> ExpensesList(
                         expenses = group.expenses.values.toList(),
@@ -224,7 +227,9 @@ fun GroupDetailsScreen(
 @Composable
 private fun GroupOverview(
     group: Group,
-    balances: Map<String, Balance>
+    balances: Map<String, Balance>,
+    settlements: List<Pair<Member, Member>>
+
 ) {
     Column(
         modifier = Modifier
@@ -253,18 +258,36 @@ private fun GroupOverview(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "Member Balances",
+                    text = "Suggested Settlements",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
-                group.members.forEach { (memberId, member) ->
-                    val memberBalance = balances[memberId]
-                    BalanceRow(
-                        name = member.name,
-                        balance = memberBalance?.netBalance ?: 0.0,
-                        paid = memberBalance?.totalPaid ?: 0.0,
-                        owes = memberBalance?.totalOwes ?: 0.0
+
+                if (settlements.isEmpty()) {
+                    Text(
+                        text = "All balances are settled!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                } else {
+                    settlements.forEach { (debtor, creditor) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${debtor.name} → ${creditor.name}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "$${String.format("%.2f", debtor.owes)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }

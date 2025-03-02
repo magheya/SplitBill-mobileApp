@@ -27,6 +27,9 @@ class GroupViewModel @Inject constructor(
     private val _selectedGroup = MutableStateFlow<Group?>(null)
     val selectedGroup: StateFlow<Group?> = _selectedGroup
 
+    private val _settlements = MutableStateFlow<List<Pair<Member, Member>>>(emptyList())
+    val settlements: StateFlow<List<Pair<Member, Member>>> = _settlements
+
     init {
         observeGroups()
     }
@@ -115,14 +118,13 @@ class GroupViewModel @Inject constructor(
             balances[memberId] = Balance()
         }
 
+        // Calculate balances as before
         currentGroup.expenses.forEach { (_, expense) ->
-            // Add the amount paid to payer's balance
             val payer = expense.paidBy
             balances[payer] = balances[payer]?.let {
                 it.copy(totalPaid = it.totalPaid + expense.amount)
             } ?: Balance(totalPaid = expense.amount)
 
-            // Add owed amounts to each participant
             expense.splitAmounts.forEach { (participantId, splitAmount) ->
                 balances[participantId] = balances[participantId]?.let {
                     it.copy(totalOwes = it.totalOwes + splitAmount)
@@ -130,9 +132,77 @@ class GroupViewModel @Inject constructor(
             }
         }
 
-        // Calculate net balance for each member
-        return balances.mapValues { (_, balance) ->
+        // Calculate final balances
+        val finalBalances = balances.mapValues { (_, balance) ->
             balance.copy(netBalance = balance.totalPaid - balance.totalOwes)
         }
+
+        // Calculate settlements
+        calculateSettlements(finalBalances, currentGroup.members)
+
+        return finalBalances
+    }
+
+    private fun calculateSettlements(
+        balances: Map<String, Balance>,
+        members: Map<String, Member>
+    ) {
+        val debtors = mutableListOf<Triple<String, Member, Double>>()
+        val creditors = mutableListOf<Triple<String, Member, Double>>()
+
+        // Separate members into debtors and creditors
+        balances.forEach { (memberId, balance) ->
+            val member = members[memberId] ?: return@forEach
+            when {
+                balance.netBalance < 0 -> debtors.add(Triple(memberId, member, -balance.netBalance))
+                balance.netBalance > 0 -> creditors.add(Triple(memberId, member, balance.netBalance))
+            }
+        }
+
+        // Sort by amount (descending)
+        debtors.sortByDescending { it.third }
+        creditors.sortByDescending { it.third }
+
+        val settlements = mutableListOf<Pair<Member, Member>>()
+
+        var i = 0
+        var j = 0
+        while (i < debtors.size && j < creditors.size) {
+            val debtor = debtors[i]
+            val creditor = creditors[j]
+
+            val settlementAmount = minOf(debtor.third, creditor.third)
+            if (settlementAmount > 0.01) { // Avoid tiny transactions
+                // Update Member objects with new balances
+                val updatedDebtor = debtor.second.copy(
+                    owes = settlementAmount
+                )
+                val updatedCreditor = creditor.second.copy(
+                    paid = settlementAmount
+                )
+
+                settlements.add(updatedDebtor to updatedCreditor)
+            }
+
+            when {
+                debtor.third > creditor.third -> {
+                    // Debtor still owes money
+                    debtors[i] = debtor.copy(third = debtor.third - creditor.third)
+                    j++
+                }
+                debtor.third < creditor.third -> {
+                    // Creditor still needs to be paid
+                    creditors[j] = creditor.copy(third = creditor.third - debtor.third)
+                    i++
+                }
+                else -> {
+                    // Both are settled
+                    i++
+                    j++
+                }
+            }
+        }
+
+        _settlements.value = settlements
     }
 }
