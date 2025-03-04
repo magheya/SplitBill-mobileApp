@@ -11,6 +11,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
 @Composable
 fun AuthScreen(
@@ -19,6 +20,7 @@ fun AuthScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -36,6 +38,17 @@ fun AuthScreen(
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+
+        if (isRegistering) {
+            OutlinedTextField(
+                value = displayName,
+                onValueChange = { displayName = it },
+                label = { Text("Display Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         OutlinedTextField(
             value = email,
@@ -71,9 +84,21 @@ fun AuthScreen(
                 if (isRegistering) {
                     // Create account
                     auth.createUserWithEmailAndPassword(email, password)
-                        .addOnSuccessListener {
-                            isLoading = false
-                            onSignInSuccess()
+                        .addOnSuccessListener { result ->
+                            // Update display name
+                            val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                                .setDisplayName(displayName)
+                                .build()
+
+                            result.user?.updateProfile(profileUpdates)
+                                ?.addOnSuccessListener {
+                                    isLoading = false
+                                    onSignInSuccess()
+                                }
+                                ?.addOnFailureListener { exception ->
+                                    isLoading = false
+                                    errorMessage = exception.message
+                                }
                         }
                         .addOnFailureListener { exception ->
                             isLoading = false
@@ -93,7 +118,8 @@ fun AuthScreen(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
+            enabled = !isLoading && email.isNotBlank() && password.isNotBlank() &&
+                    (!isRegistering || displayName.isNotBlank())
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
@@ -106,7 +132,10 @@ fun AuthScreen(
         }
 
         TextButton(
-            onClick = { isRegistering = !isRegistering },
+            onClick = {
+                isRegistering = !isRegistering
+                errorMessage = null
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(

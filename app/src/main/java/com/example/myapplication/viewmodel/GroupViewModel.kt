@@ -119,21 +119,22 @@ class GroupViewModel @Inject constructor(
 
                 Log.d("GroupViewModel", "Creating group: $name for user: ${currentUser.uid}")
 
-                // Create initial member list including the current user
-                val allMembers = members.toMutableList()
-                if (!members.any { it.id == currentUser.uid }) {
-                    allMembers.add(
-                        Member(
-                            id = currentUser.uid,
-                            name = currentUser.displayName ?: "User",
-                        )
-                    )
+                // Create a member object for the current user
+                val currentUserMember = Member(
+                    id = currentUser.uid,
+                    name = currentUser.displayName ?: "User"
+                )
+
+                // Create a new list with the current user and other members
+                val membersList = buildList {
+                    add(currentUserMember)  // Add current user first
+                    addAll(members.filter { it.id != currentUser.uid })  // Add other members, avoiding duplicates
                 }
 
                 val groupId = groupRepository.createGroup(
                     name = name,
                     createdBy = currentUser.uid,
-                    members = allMembers
+                    members = membersList
                 )
 
                 Log.d("GroupViewModel", "Group created with ID: $groupId")
@@ -307,4 +308,27 @@ class GroupViewModel @Inject constructor(
         _settlements.value = settlements
     }
 
+    fun calculatePersonalBalances(userId: String): Pair<Double, Double> {
+        val currentGroup = _selectedGroup.value ?: return Pair(0.0, 0.0)
+        var totalExpenses = 0.0
+        var totalDebts = 0.0
+
+        // Calculate total expenses paid by user
+        currentGroup.expenses.values
+            .filter { it.paidBy == userId }
+            .forEach { expense ->
+                totalExpenses += expense.amount
+            }
+
+        // Calculate debts (what the user owes to others)
+        currentGroup.expenses.values
+            .filter { it.paidBy != userId } // Expenses not paid by the user
+            .forEach { expense ->
+                // Get the split amount for the current user
+                val userSplitAmount = expense.splitAmounts[userId] ?: 0.0
+                totalDebts += userSplitAmount
+            }
+
+        return Pair(totalExpenses, totalDebts)
+    }
 }

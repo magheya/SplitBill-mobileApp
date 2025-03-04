@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.ArrowBack
 import com.example.myapplication.viewmodel.GroupViewModel
-
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,13 +24,20 @@ fun DashboardScreen(
     onNavigateBack: () -> Unit,
     viewModel: GroupViewModel
 ) {
-    val totalExpenses = expenses.sumOf { it.amount }
-    val totalDebts by viewModel.totalDebts.collectAsState()
-    val categoryExpenses = expenses.groupBy { it.category }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    val (personalExpenses, personalDebts) = viewModel.calculatePersonalBalances(currentUserId)
+
+    val categoryExpenses = expenses
+        .filter { it.paidBy == currentUserId }
+        .groupBy { it.category }
         .mapValues { it.value.sumOf { expense -> expense.amount } }
-    val topSpenders = expenses.flatMap { expense ->
-        expense.splitAmounts.map { (userId, amount) -> userId to amount }
-    }.groupBy { it.first }
+
+    val personalTopSpenders = expenses
+        .filter { it.paidBy == currentUserId }
+        .flatMap { expense ->
+            expense.splitAmounts.map { (userId, amount) -> userId to amount }
+        }
+        .groupBy { it.first }
         .mapValues { it.value.sumOf { pair -> pair.second } }
         .toList()
         .sortedByDescending { it.second }
@@ -39,7 +46,7 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dashboard") },
+                title = { Text("My Dashboard") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
@@ -58,7 +65,7 @@ fun DashboardScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Total Expenses Card
+            // Personal Expenses Card
             item {
                 Card(
                     modifier = Modifier
@@ -72,17 +79,17 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 Icons.Default.Analytics,
-                                contentDescription = "Total Expenses",
+                                contentDescription = "My Expenses",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Total Expenses",
+                                "My Expenses",
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
                         Text(
-                            String.format("%.2f", totalExpenses),
+                            String.format("%.2f", personalExpenses),
                             style = MaterialTheme.typography.headlineMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -91,7 +98,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Total Debts Card
+            // Personal Debts Card
             item {
                 Card(
                     modifier = Modifier
@@ -105,35 +112,62 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 Icons.Default.Analytics,
-                                contentDescription = "Total Debts",
+                                contentDescription = "My Debts",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Total Debts",
+                                "My Debts",
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
                         Text(
-                            String.format("%.2f", totalDebts),
+                            String.format("%.2f", personalDebts),
                             style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            // Expense Debt Chart
+            // Net Balance Card
             item {
-                ExpenseDebtChart(
-                    totalExpenses = totalExpenses,
-                    totalDebts = totalDebts,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Analytics,
+                                contentDescription = "Net Balance",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Net Balance",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                        Text(
+                            String.format("%.2f", personalExpenses - personalDebts),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (personalExpenses - personalDebts >= 0)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            // Category Pie Chart
+            // Personal Category Pie Chart
             item {
                 CategoryPieChart(
                     categoryExpenses = categoryExpenses,
@@ -141,28 +175,30 @@ fun DashboardScreen(
                 )
             }
 
-            // Top Spenders
+            // Personal Top Spenders
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Top Spenders",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                topSpenders.forEach { (userId, amount) ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(
+                if (personalTopSpenders.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Top People I Paid For",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    personalTopSpenders.forEach { (userId, amount) ->
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(vertical = 4.dp)
                         ) {
-                            Text(users[userId] ?: "Unknown User")
-                            Text(String.format("%.2f", amount))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(users[userId] ?: "Unknown User")
+                                Text(String.format("%.2f", amount))
+                            }
                         }
                     }
                 }
