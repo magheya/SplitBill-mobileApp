@@ -96,4 +96,11 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     // For PDF generation
     implementation("com.itextpdf:itext7-core:7.1.16")
+
+    implementation("com.patrykandpatrick.vico:compose:1.13.1")
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+    implementation("com.patrykandpatrick.vico:core:1.13.1")
+
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
 }

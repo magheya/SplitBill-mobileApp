@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.ArrowBack
 import com.example.myapplication.viewmodel.GroupViewModel
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -41,10 +42,7 @@ fun DashboardScreen(
                 title = { Text("Dashboard") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -126,31 +124,24 @@ fun DashboardScreen(
                 }
             }
 
+            // Expense Debt Chart
             item {
-                Text(
-                    "Expenses by Category",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                ExpenseDebtChart(
+                    totalExpenses = totalExpenses,
+                    totalDebts = totalDebts,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
-                categoryExpenses.forEach { (category, amount) ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(category.name)
-                            Text(String.format("%.2f", amount))
-                        }
-                    }
-                }
             }
 
+            // Category Pie Chart
+            item {
+                CategoryPieChart(
+                    categoryExpenses = categoryExpenses,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            // Top Spenders
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
