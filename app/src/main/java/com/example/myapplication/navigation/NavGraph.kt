@@ -5,16 +5,19 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.*
 import androidx.navigation.compose.*
-import com.example.myapplication.data.model.Expense
 import com.example.myapplication.data.model.Group
 import com.example.myapplication.data.model.Member
+import com.example.myapplication.data.model.Expense
 import com.example.myapplication.ui.auth.AuthScreen
+import com.example.myapplication.ui.dashboard.DashboardScreen
 import com.example.myapplication.ui.groups.GroupsScreen
 import com.example.myapplication.ui.groups.GroupDetailsScreen
 import com.example.myapplication.ui.profile.ProfileScreen
 import com.example.myapplication.ui.home.HomeScreen
+import com.example.myapplication.ui.splash.SplashScreen
 import com.example.myapplication.viewmodel.GroupViewModel
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.material.icons.filled.ArrowBack
 
 sealed class Screen(val route: String) {
     object Auth : Screen("auth")
@@ -24,6 +27,7 @@ sealed class Screen(val route: String) {
         fun createRoute(groupId: String) = "group/$groupId"
     }
     object Profile : Screen("profile")
+    object Dashboard : Screen("dashboard")
 }
 
 @Composable
@@ -39,15 +43,24 @@ fun NavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Auth.route,
+        startDestination = "splash",
         modifier = modifier
     ) {
-        // Authentication screen
-        composable(Screen.Auth.route) {
+        // Splash screen
+        composable("splash") {
+            SplashScreen(
+                onSplashComplete = {
+                    navController.navigate("auth") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("auth") {
             AuthScreen(
                 onSignInSuccess = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Auth.route) { inclusive = true }
+                    navController.navigate("home") {
+                        popUpTo("auth") { inclusive = true }
                     }
                 }
             )
@@ -57,7 +70,27 @@ fun NavGraph(
         composable(Screen.Home.route) {
             HomeScreen(
                 onNavigateToGroups = { navController.navigate(Screen.Groups.route) },
-                onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                onNavigateToProfile = { navController.navigate(Screen.Profile.route) },  // Add comma here
+                onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) }
+            )
+        }
+
+        // Dashboard screen
+        composable(Screen.Dashboard.route) {
+            val usersMap = groups.flatMap { group ->
+                group.members?.let { members ->
+                    members.map { (_, member) ->
+                        member.id to member.name
+                    }
+                } ?: emptyList()
+            }.toMap()
+
+            DashboardScreen(
+                expenses = groups.flatMap { group ->
+                    group.expenses?.values?.toList() ?: emptyList<Expense>()
+                },
+                users = usersMap,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

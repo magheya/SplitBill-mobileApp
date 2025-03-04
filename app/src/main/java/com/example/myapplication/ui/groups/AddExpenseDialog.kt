@@ -231,7 +231,7 @@ fun AddExpenseDialog(
                                                 percentageSplitAmounts = percentageSplitAmounts + (member.id to value)
                                             }
                                         },
-                                        label = { Text("Percentage") },
+                                        label = { Text("Percent") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                         modifier = Modifier
                                             .fillMaxWidth()
