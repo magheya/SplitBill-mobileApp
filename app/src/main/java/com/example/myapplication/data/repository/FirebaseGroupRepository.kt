@@ -43,13 +43,16 @@ class FirebaseGroupRepository @Inject constructor(
             )
 
             // Create group in groups node
+            Log.d("FirebaseGroupRepository", "Setting group data for $groupId")
             groupsRef.child(groupId).setValue(group).await()
 
             // Add group reference to creator's user_groups node
+            Log.d("FirebaseGroupRepository", "Adding group reference for creator: $createdBy")
             userGroupsRef.child(createdBy).child(groupId).setValue(true).await()
 
             // Add group reference to all members' user_groups node
             members.forEach { member ->
+                Log.d("FirebaseGroupRepository", "Adding group reference for member: ${member.id}")
                 userGroupsRef.child(member.id).child(groupId).setValue(true).await()
             }
 
@@ -64,28 +67,42 @@ class FirebaseGroupRepository @Inject constructor(
     override fun observeGroups(userId: String): Flow<List<Group>> = callbackFlow {
         var groupsListener: ValueEventListener? = null
 
+        Log.d("FirebaseGroupRepository", "Starting observeGroups for userId: $userId")
+
         val userGroupsListener = object : ValueEventListener {
             override fun onDataChange(userGroupsSnapshot: DataSnapshot) {
                 try {
+                    Log.d("FirebaseGroupRepository", "UserGroups snapshot received: ${userGroupsSnapshot.exists()}")
+
                     // Get all group IDs for the user
                     val groupIds = userGroupsSnapshot.children.mapNotNull { it.key }
 
+                    Log.d("FirebaseGroupRepository", "Found group IDs: $groupIds")
+
                     if (groupIds.isEmpty()) {
+                        Log.d("FirebaseGroupRepository", "No groups found for user")
                         trySend(emptyList())
                         return
                     }
 
                     // Remove previous listener if exists
-                    groupsListener?.let { groupsRef.removeEventListener(it) }
+                    groupsListener?.let {
+                        Log.d("FirebaseGroupRepository", "Removing previous groups listener")
+                        groupsRef.removeEventListener(it)
+                    }
 
                     // Create a new listener for the groups
                     groupsListener = object : ValueEventListener {
                         override fun onDataChange(groupsSnapshot: DataSnapshot) {
+                            Log.d("FirebaseGroupRepository", "Groups snapshot received")
                             val groups = groupIds.mapNotNull { groupId ->
                                 groupsSnapshot.child(groupId).getValue(Group::class.java)?.copy(
                                     id = groupId
-                                )
+                                ).also { group ->
+                                    Log.d("FirebaseGroupRepository", "Parsed group: ${group?.name}")
+                                }
                             }
+                            Log.d("FirebaseGroupRepository", "Sending ${groups.size} groups")
                             trySend(groups)
                         }
 
@@ -96,7 +113,10 @@ class FirebaseGroupRepository @Inject constructor(
                     }
 
                     // Add listener for groups
-                    groupsListener?.let { groupsRef.addValueEventListener(it) }
+                    groupsListener?.let {
+                        Log.d("FirebaseGroupRepository", "Adding new groups listener")
+                        groupsRef.addValueEventListener(it)
+                    }
 
                 } catch (e: Exception) {
                     Log.e("FirebaseGroupRepository", "Error parsing user groups", e)
@@ -111,10 +131,12 @@ class FirebaseGroupRepository @Inject constructor(
         }
 
         // Add listener for user's groups
+        Log.d("FirebaseGroupRepository", "Adding user groups listener")
         userGroupsRef.child(userId).addValueEventListener(userGroupsListener)
 
         // Remove all listeners when flow is cancelled
         awaitClose {
+            Log.d("FirebaseGroupRepository", "Removing all listeners")
             userGroupsRef.child(userId).removeEventListener(userGroupsListener)
             groupsListener?.let { groupsRef.removeEventListener(it) }
         }

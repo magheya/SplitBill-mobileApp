@@ -30,39 +30,98 @@ class GroupViewModel @Inject constructor(
     private val _settlements = MutableStateFlow<List<Pair<Member, Member>>>(emptyList())
     val settlements: StateFlow<List<Pair<Member, Member>>> = _settlements
 
-    init {
-        observeGroups()
-    }
-
-    private fun observeGroups() {
-        viewModelScope.launch {
-            auth.currentUser?.uid?.let { userId ->
-                groupRepository.observeGroups(userId).collect { groupsList ->
-                    _groups.value = groupsList
-                }
-            }
+    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        Log.d("GroupViewModel", "Auth state changed. User: ${firebaseAuth.currentUser?.uid}")
+        firebaseAuth.currentUser?.let { user ->
+            observeGroups(user.uid)
+        } ?: run {
+            _groups.value = emptyList()
+            _selectedGroup.value = null
         }
     }
 
-    fun selectGroup(groupId: String) {
-        _selectedGroup.value = _groups.value.find { it.id == groupId }
+    init {
+        Log.d("GroupViewModel", "Initializing GroupViewModel")
+        auth.addAuthStateListener(authStateListener)
+        auth.currentUser?.let { user ->
+            observeGroups(user.uid)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        auth.removeAuthStateListener(authStateListener)
+    }
+
+    private fun observeGroups(userId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("GroupViewModel", "Starting to observe groups for user: $userId")
+                groupRepository.observeGroups(userId)
+                    .collect { groupsList ->
+                        Log.d("GroupViewModel", "Received ${groupsList.size} groups")
+                        _groups.value = groupsList.sortedByDescending { it.createdAt }
+                    }
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error observing groups", e)
+                _groups.value = emptyList()
+            }
+        }
     }
 
     fun createGroup(name: String, members: List<Member>, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
-                val currentUser = auth.currentUser ?: return@launch
+                val currentUser = auth.currentUser
+                if (currentUser == null) {
+                    Log.e("GroupViewModel", "No authenticated user found")
+                    return@launch
+                }
+
+                Log.d("GroupViewModel", "Creating group: $name for user: ${currentUser.uid}")
+
+                // Create initial member list including the current user
+                val allMembers = members.toMutableList()
+                if (!members.any { it.id == currentUser.uid }) {
+                    allMembers.add(
+                        Member(
+                            id = currentUser.uid,
+                            name = currentUser.displayName ?: "User",
+                        )
+                    )
+                }
+
                 val groupId = groupRepository.createGroup(
                     name = name,
                     createdBy = currentUser.uid,
-                    members = members
+                    members = allMembers
                 )
+
+                Log.d("GroupViewModel", "Group created with ID: $groupId")
+
+                // Force refresh groups
+                observeGroups(currentUser.uid)
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error creating group", e)
             }
         }
     }
+
+    fun selectGroup(groupId: String) {
+        viewModelScope.launch {
+            try {
+                val group = _groups.value.find { it.id == groupId }
+                Log.d("GroupViewModel", "Selecting group: ${group?.name}")
+                _selectedGroup.value = group
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error selecting group", e)
+            }
+        }
+    }
+
+    // ... rest of your methods remain the same ...
+
 
     fun addExpense(groupId: String, expense: Expense) {
         viewModelScope.launch {
