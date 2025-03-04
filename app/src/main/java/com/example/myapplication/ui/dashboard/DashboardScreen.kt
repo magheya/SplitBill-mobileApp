@@ -13,15 +13,18 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.ArrowBack
+import com.example.myapplication.viewmodel.GroupViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     expenses: List<Expense>,
     users: Map<String, String>,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: GroupViewModel
 ) {
     val totalExpenses = expenses.sumOf { it.amount }
+    val totalDebts by viewModel.totalDebts.collectAsState()
     val categoryExpenses = expenses.groupBy { it.category }
         .mapValues { it.value.sumOf { expense -> expense.amount } }
     val topSpenders = expenses.flatMap { expense ->
@@ -57,13 +60,13 @@ fun DashboardScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Total Expenses Card
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
                 ) {
-                    // Total expenses card content
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -82,6 +85,39 @@ fun DashboardScreen(
                         }
                         Text(
                             String.format("%.2f", totalExpenses),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Total Debts Card
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Analytics,
+                                contentDescription = "Total Debts",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Total Debts",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                        Text(
+                            String.format("%.2f", totalDebts),
                             style = MaterialTheme.typography.headlineMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold

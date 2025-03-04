@@ -40,6 +40,9 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    private val _totalDebts = MutableStateFlow<Double>(0.0)
+    val totalDebts: StateFlow<Double> = _totalDebts
+
     init {
         Log.d("GroupViewModel", "Initializing GroupViewModel")
         auth.addAuthStateListener(authStateListener)
@@ -61,12 +64,48 @@ class GroupViewModel @Inject constructor(
                     .collect { groupsList ->
                         Log.d("GroupViewModel", "Received ${groupsList.size} groups")
                         _groups.value = groupsList.sortedByDescending { it.createdAt }
+                        calculateGlobalTotalDebts(groupsList) // Calculate debts for all groups
                     }
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error observing groups", e)
                 _groups.value = emptyList()
+                _totalDebts.value = 0.0
             }
         }
+    }
+
+    private fun calculateGlobalTotalDebts(groups: List<Group>) {
+        val totalDebts = groups.sumOf { group ->
+            val balances = mutableMapOf<String, Balance>()
+
+            // Initialize balances for all members
+            group.members.keys.forEach { memberId ->
+                balances[memberId] = Balance()
+            }
+
+            // Calculate balances for this group
+            group.expenses.forEach { (_, expense) ->
+                val payer = expense.paidBy
+                balances[payer] = balances[payer]?.let {
+                    it.copy(totalPaid = it.totalPaid + expense.amount)
+                } ?: Balance(totalPaid = expense.amount)
+
+                expense.splitAmounts.forEach { (participantId, splitAmount) ->
+                    balances[participantId] = balances[participantId]?.let {
+                        it.copy(totalOwes = it.totalOwes + splitAmount)
+                    } ?: Balance(totalOwes = splitAmount)
+                }
+            }
+
+            // Sum up negative balances (debts) for this group
+            balances.values
+                .map { it.copy(netBalance = it.totalPaid - it.totalOwes) }
+                .filter { it.netBalance < 0 }
+                .sumOf { -it.netBalance }
+        }
+
+        _totalDebts.value = totalDebts
+        Log.d("GroupViewModel", "Total debts calculated: $totalDebts")
     }
 
     fun createGroup(name: String, members: List<Member>, onSuccess: () -> Unit) {
@@ -114,6 +153,7 @@ class GroupViewModel @Inject constructor(
                 val group = _groups.value.find { it.id == groupId }
                 Log.d("GroupViewModel", "Selecting group: ${group?.name}")
                 _selectedGroup.value = group
+
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error selecting group", e)
             }
@@ -127,8 +167,10 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 groupRepository.addExpense(groupId, expense)
-                // Re-select the group to refresh the data
-                selectGroup(groupId)
+                // The next observeGroups update will recalculate debts automatically
+                auth.currentUser?.let { user ->
+                    observeGroups(user.uid)
+                }
             } catch (e: Exception) {
                 Log.e("GroupViewModel", "Error adding expense", e)
             }
@@ -264,4 +306,5 @@ class GroupViewModel @Inject constructor(
 
         _settlements.value = settlements
     }
+
 }

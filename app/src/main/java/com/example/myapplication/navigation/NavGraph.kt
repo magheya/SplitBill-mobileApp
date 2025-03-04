@@ -90,7 +90,8 @@ fun NavGraph(
                     group.expenses?.values?.toList() ?: emptyList<Expense>()
                 },
                 users = usersMap,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                viewModel = groupViewModel
             )
         }
 
