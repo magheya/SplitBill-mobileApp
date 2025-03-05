@@ -192,7 +192,7 @@ fun GroupDetailsScreen(
             members = group.members.values.toList(),
             onDismiss = { showAddExpenseDialog = false },
             onConfirm = { expense ->
-                onAddExpense(expense)
+                viewModel.addExpense(groupId, expense)
                 showAddExpenseDialog = false
             }
         )
@@ -202,7 +202,7 @@ fun GroupDetailsScreen(
         AddMemberDialog(
             onDismiss = { showAddMemberDialog = false },
             onConfirm = { member ->
-                onAddMember(member)
+                viewModel.addMember(groupId, member)
                 showAddMemberDialog = false
             }
         )
@@ -240,6 +240,9 @@ private fun GroupOverview(
     settlements: List<Pair<Member, Member>>
 
 ) {
+
+    val totalAmount by rememberUpdatedState(newValue = group.totalAmount) // Update dynamically
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -254,7 +257,7 @@ private fun GroupOverview(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "$${String.format("%.2f", group.totalAmount)}",
+                    text = "$${String.format("%.2f", totalAmount)}",  // Updates instantly
                     style = MaterialTheme.typography.headlineMedium
                 )
             }

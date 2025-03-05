@@ -164,31 +164,21 @@ class GroupViewModel @Inject constructor(
     // ... rest of your methods remain the same ...
 
 
-    fun addExpense(groupId: String, expense: Expense) {
-        viewModelScope.launch {
-            try {
-                groupRepository.addExpense(groupId, expense)
-                // The next observeGroups update will recalculate debts automatically
-                auth.currentUser?.let { user ->
-                    observeGroups(user.uid)
-                }
-            } catch (e: Exception) {
-                Log.e("GroupViewModel", "Error adding expense", e)
-            }
-        }
+    fun addMember(groupId: String, member: Member) {
+        val updatedGroup = _selectedGroup.value?.copy(
+            members = _selectedGroup.value?.members?.plus(member.id to member) ?: emptyMap()
+        )
+        _selectedGroup.value = updatedGroup
     }
 
-    fun addMember(groupId: String, member: Member) {
-        viewModelScope.launch {
-            try {
-                groupRepository.addMember(groupId, member)
-                // Re-select the group to refresh the data
-                selectGroup(groupId)
-            } catch (e: Exception) {
-                Log.e("GroupViewModel", "Error adding member", e)
-            }
-        }
+    fun addExpense(groupId: String, expense: Expense) {
+        val updatedGroup = _selectedGroup.value?.copy(
+            expenses = _selectedGroup.value?.expenses?.plus(expense.id to expense) ?: emptyMap(),
+            totalAmount = (_selectedGroup.value?.totalAmount ?: 0.0) + expense.amount
+        )
+        _selectedGroup.value = updatedGroup
     }
+
 
     fun removeMember(groupId: String, memberId: String) {
         viewModelScope.launch {
