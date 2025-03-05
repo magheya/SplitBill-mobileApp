@@ -38,7 +38,8 @@ fun GroupDetailsScreen(
     onAddExpense: (Expense) -> Unit,
     onAddMember: (Member) -> Unit,
     onRemoveMember: (String) -> Unit,
-    onDeleteGroup: () -> Unit
+    onDeleteGroup: () -> Unit,
+    onNavigateToScanner: () -> Unit // Add this parameter
 ) {
     val context = LocalContext.current
     val group = viewModel.selectedGroup.collectAsState().value
@@ -116,6 +117,14 @@ fun GroupDetailsScreen(
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
+        } ,
+        floatingActionButton = {
+            // Add a FloatingActionButton for receipt scanning
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToScanner,
+                icon = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
+                text = { Text("Scan Receipt") }
+            )
         }
     ) { paddingValues ->
         if (group == null) {

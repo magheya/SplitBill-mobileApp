@@ -18,6 +18,8 @@ import com.example.myapplication.ui.splash.SplashScreen
 import com.example.myapplication.viewmodel.GroupViewModel
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.material.icons.filled.ArrowBack
+import com.example.myapplication.ui.scanner.ReceiptScannerScreen
+
 
 sealed class Screen(val route: String) {
     object Auth : Screen("auth")
@@ -28,6 +30,7 @@ sealed class Screen(val route: String) {
     }
     object Profile : Screen("profile")
     object Dashboard : Screen("dashboard")
+    object Scanner : Screen("scanner")
 }
 
 @Composable
@@ -143,7 +146,8 @@ fun NavGraph(
                     groupViewModel.deleteGroup(groupId) {
                         navController.popBackStack()
                     }
-                }
+                },
+                onNavigateToScanner = { navController.navigate(Screen.Scanner.route) }
             )
         }
 
@@ -157,6 +161,19 @@ fun NavGraph(
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Scanner.route) {
+            ReceiptScannerScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onExpenseCreated = { expense ->
+                    // Get the selected group and add the expense
+                    val currentGroupId = selectedGroup?.id
+                    if (currentGroupId != null) {
+                        groupViewModel.addExpense(currentGroupId, expense)
+                    }
+                }
             )
         }
     }
