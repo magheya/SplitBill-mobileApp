@@ -1,5 +1,6 @@
 package com.example.myapplication.navigation
 
+import android.util.Log
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -143,9 +144,14 @@ fun NavGraph(
                     groupViewModel.removeMember(groupId, memberId)
                 },
                 onDeleteGroup = {
-                    groupViewModel.deleteGroup(groupId) {
-                        navController.popBackStack()
-                    }
+                    groupViewModel.deleteGroup(groupId,
+                        onSuccess = {
+                            navController.popBackStack()
+                        },
+                        onFailure = { exception ->
+                            Log.e("Firebase", "Failed to delete group: ${exception.message}")
+                        }
+                    )
                 },
                 onNavigateToScanner = { navController.navigate(Screen.Scanner.route) }
             )

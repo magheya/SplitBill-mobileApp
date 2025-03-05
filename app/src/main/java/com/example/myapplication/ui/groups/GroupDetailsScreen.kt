@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.example.myapplication.util.PdfExporter
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -216,11 +217,19 @@ fun GroupDetailsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onDeleteGroup()
-                        showConfirmDeleteDialog = false
-                        onNavigateBack()
+                        viewModel.deleteGroup(
+                            groupId = groupId,
+                            onSuccess = {
+                                showConfirmDeleteDialog = false
+                                onNavigateBack() // Navigate back after deletion
+                            },
+                            onFailure = { error ->
+                                // Show a snackbar or log the error
+                                Log.e("GroupDeletion", "Error deleting group: ${error.message}")
+                            }
+                        )
                     }
-                ) {
+                )  {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },

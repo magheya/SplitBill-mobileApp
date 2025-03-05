@@ -19,7 +19,8 @@ import javax.inject.Inject
 @HiltViewModel
 class GroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val database: DatabaseReference
 ) : ViewModel() {
     private val _groups = MutableStateFlow<List<Group>>(emptyList())
     val groups: StateFlow<List<Group>> = _groups
@@ -39,6 +40,51 @@ class GroupViewModel @Inject constructor(
             _selectedGroup.value = null
         }
     }
+
+    fun listenToGroupChanges(groupId: String) {
+        val groupRef = FirebaseDatabase.getInstance().getReference("groups").child(groupId)
+
+        groupRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                snapshot.getValue(Group::class.java)?.let { group ->
+                    _selectedGroup.value = group
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error listening to group changes", error.toException())
+            }
+        })
+
+        // Listen for changes in expenses
+        groupRef.child("expenses").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val updatedExpenses = snapshot.children.mapNotNull { it.getValue(Expense::class.java) }
+                _selectedGroup.value?.let { currentGroup ->
+                    _selectedGroup.value = currentGroup.copy(expenses = updatedExpenses.associateBy { it.id })
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error listening to expenses changes", error.toException())
+            }
+        })
+
+        // Listen for changes in members
+        groupRef.child("members").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val updatedMembers = snapshot.children.mapNotNull { it.getValue(Member::class.java) }
+                _selectedGroup.value?.let { currentGroup ->
+                    _selectedGroup.value = currentGroup.copy(members = updatedMembers.associateBy { it.id })
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error listening to members changes", error.toException())
+            }
+        })
+    }
+
 
     private val _totalDebts = MutableStateFlow<Double>(0.0)
     val totalDebts: StateFlow<Double> = _totalDebts
@@ -165,40 +211,68 @@ class GroupViewModel @Inject constructor(
 
 
     fun addMember(groupId: String, member: Member) {
-        val updatedGroup = _selectedGroup.value?.copy(
-            members = _selectedGroup.value?.members?.plus(member.id to member) ?: emptyMap()
-        )
-        _selectedGroup.value = updatedGroup
+        val groupRef = database.child("groups").child(groupId).child("members").child(member.id)
+        groupRef.setValue(member).addOnSuccessListener {
+            Log.d("Firebase", "Member successfully added!")
+
+            // 🔄 Force refresh
+            listenToGroupChanges(groupId)
+
+        }.addOnFailureListener { e ->
+            Log.e("Firebase", "Error adding member", e)
+        }
     }
 
+
     fun addExpense(groupId: String, expense: Expense) {
-        val updatedGroup = _selectedGroup.value?.copy(
-            expenses = _selectedGroup.value?.expenses?.plus(expense.id to expense) ?: emptyMap(),
-            totalAmount = (_selectedGroup.value?.totalAmount ?: 0.0) + expense.amount
-        )
-        _selectedGroup.value = updatedGroup
+        val groupRef = database.child("groups").child(groupId)
+        val expensesRef = groupRef.child("expenses").child(expense.id)
+
+        groupRef.child("totalAmount").get().addOnSuccessListener { snapshot ->
+            val currentTotalAmount = snapshot.getValue(Double::class.java) ?: 0.0
+            val newTotalAmount = currentTotalAmount + expense.amount
+
+            val updates = mapOf(
+                "expenses/${expense.id}" to expense,
+                "totalAmount" to newTotalAmount
+            )
+
+            groupRef.updateChildren(updates).addOnSuccessListener {
+                Log.d("Firebase", "Expense successfully added!")
+
+                // 🔄 Force refresh
+                listenToGroupChanges(groupId)
+
+            }.addOnFailureListener { e ->
+                Log.w("Firebase", "Error adding expense", e)
+            }
+        }.addOnFailureListener { e ->
+            Log.w("Firebase", "Error retrieving totalAmount", e)
+        }
     }
 
 
     fun removeMember(groupId: String, memberId: String) {
-        viewModelScope.launch {
-            try {
-                groupRepository.removeMember(groupId, memberId)
-            } catch (e: Exception) {
-                Log.e("GroupViewModel", "Error removing member", e)
-            }
+        val groupRef = FirebaseDatabase.getInstance().getReference("groups").child(groupId)
+        val memberRef = groupRef.child("members").child(memberId)
+
+        memberRef.removeValue().addOnSuccessListener {
+            Log.d("Firebase", "Member successfully removed!")
+        }.addOnFailureListener { e ->
+            Log.e("Firebase", "Error removing member", e)
         }
     }
 
-    fun deleteGroup(groupId: String, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                groupRepository.deleteGroup(groupId)
+    fun deleteGroup(groupId: String, onSuccess: () -> Unit, onFailure: (Exception) -> Unit) {
+        val groupRef = database.child("groups").child(groupId)
+
+        groupRef.removeValue()
+            .addOnSuccessListener {
                 onSuccess()
-            } catch (e: Exception) {
-                Log.e("GroupViewModel", "Error deleting group", e)
             }
-        }
+            .addOnFailureListener { exception ->
+                onFailure(exception)
+            }
     }
 
     fun calculateMemberBalances(groupId: String): Map<String, Balance> {

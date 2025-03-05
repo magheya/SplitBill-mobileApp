@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.example.myapplication.data.repository.FirebaseGroupRepository
 import com.example.myapplication.data.repository.GroupRepository
+import com.google.firebase.database.DatabaseReference
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,5 +24,11 @@ object FirebaseModule {
         val database = FirebaseDatabase.getInstance()
         database.setPersistenceEnabled(true)
         return database
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabaseReference(): DatabaseReference {
+        return FirebaseDatabase.getInstance().reference
     }
 }
