@@ -83,7 +83,7 @@ fun GroupDetailsScreen(
                                         val file = File(filePath)
                                         val uri = FileProvider.getUriForFile(
                                             context,
-                                            "${context.packageName}.fileprovider",
+                                            "${context.packageName}.provider",
                                             file
                                         )
                                         val intent = Intent(Intent.ACTION_VIEW).apply {
