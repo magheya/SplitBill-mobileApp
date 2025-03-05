@@ -2,9 +2,11 @@ package com.example.myapplication.ui.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -12,7 +14,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HomeScreen(
     onNavigateToGroups: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToDashboard: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -44,6 +47,25 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("View Groups")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onNavigateToDashboard,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Analytics,
+                        contentDescription = "Dashboard",
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Dashboard & Insights")
+                }
             }
         }
     }

@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services") // for Firebase
+    id("kotlin-kapt")
+    id("dagger.hilt.android.plugin")
 }
 
 android {
@@ -11,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.myapplication"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -64,6 +66,13 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-analytics")
+    implementation ("com.google.firebase:firebase-database-ktx")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
     // **ViewModel & LiveData**
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx")
@@ -75,7 +84,7 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     // **PDF Generation (iText)**
-    implementation("com.itextpdf:itext7-core:7.1.15")
+    implementation("com.itextpdf:itext7-core:7.2.5")
 
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
@@ -87,4 +96,11 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     // For PDF generation
     implementation("com.itextpdf:itext7-core:7.1.16")
+
+    implementation("com.patrykandpatrick.vico:compose:1.13.1")
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+    implementation("com.patrykandpatrick.vico:core:1.13.1")
+
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
 }
