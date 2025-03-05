@@ -31,6 +31,9 @@ class GroupViewModel @Inject constructor(
     private val _settlements = MutableStateFlow<List<Pair<Member, Member>>>(emptyList())
     val settlements: StateFlow<List<Pair<Member, Member>>> = _settlements
 
+    private val _expenses = MutableStateFlow<Map<String, Expense>>(emptyMap())
+    val expenses: StateFlow<Map<String, Expense>> = _expenses
+
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         Log.d("GroupViewModel", "Auth state changed. User: ${firebaseAuth.currentUser?.uid}")
         firebaseAuth.currentUser?.let { user ->
@@ -41,7 +44,7 @@ class GroupViewModel @Inject constructor(
         }
     }
 
-    fun listenToGroupChanges(groupId: String) {
+    private fun listenToGroupChanges(groupId: String) {
         val groupRef = FirebaseDatabase.getInstance().getReference("groups").child(groupId)
 
         groupRef.addValueEventListener(object : ValueEventListener {
@@ -249,6 +252,58 @@ class GroupViewModel @Inject constructor(
         }.addOnFailureListener { e ->
             Log.w("Firebase", "Error retrieving totalAmount", e)
         }
+    }
+
+    fun updateExpense(groupId: String, expense: Expense) {
+        viewModelScope.launch {
+            try {
+                val groupRef = database.child("groups").child(groupId)
+                val expensesRef = groupRef.child("expenses").child(expense.id)
+
+                // Get the old expense to calculate total amount adjustment
+                expensesRef.get().addOnSuccessListener { snapshot ->
+                    val oldExpense = snapshot.getValue(Expense::class.java)
+                    val amountDifference = expense.amount - (oldExpense?.amount ?: 0.0)
+
+                    // Update total amount and expense
+                    groupRef.child("totalAmount").get().addOnSuccessListener { totalSnapshot ->
+                        val currentTotalAmount = totalSnapshot.getValue(Double::class.java) ?: 0.0
+                        val updates = mapOf(
+                            "expenses/${expense.id}" to expense,
+                            "totalAmount" to (currentTotalAmount + amountDifference)
+                        )
+
+                        groupRef.updateChildren(updates).addOnSuccessListener {
+                            Log.d("Firebase", "Expense successfully updated!")
+
+                            fetchExpenses(groupId)
+
+                        }.addOnFailureListener { e ->
+                            Log.e("Firebase", "Error updating expense", e)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("GroupViewModel", "Error updating expense", e)
+            }
+        }
+    }
+
+    fun fetchExpenses(groupId: String) {
+        val expensesRef = database.child("groups").child(groupId).child("expenses")
+
+        expensesRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val expenseMap = snapshot.children.associate {
+                    it.key!! to it.getValue(Expense::class.java)!!
+                }
+                _expenses.value = expenseMap  // ✅ Updates StateFlow correctly
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Failed to fetch expenses", error.toException())
+            }
+        })
     }
 
 

@@ -29,6 +29,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
+import kotlin.math.exp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,7 +170,10 @@ fun GroupDetailsScreen(
                     )
                     1 -> ExpensesList(
                         expenses = group.expenses.values.toList(),
-                        members = group.members  // Pass the members map
+                        members = group.members,
+                        onEditExpense = { updatedExpense ->
+                            viewModel.updateExpense(groupId, updatedExpense)
+                        }
                     )
                     2 -> MembersList(
                         members = group.members,
@@ -362,7 +366,8 @@ private fun BalanceRow(
 @Composable
 private fun ExpensesList(
     expenses: List<Expense>,
-    members: Map<String, Member>  // Add this parameter
+    members: Map<String, Member>, // Add this parameter
+    onEditExpense: (Expense) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -370,7 +375,11 @@ private fun ExpensesList(
             .padding(16.dp)
     ) {
         items(expenses) { expense ->
-            ExpenseCard(expense, members)  // Pass members to ExpenseCard
+            ExpenseCard(
+                expense = expense,
+                members = members,
+                onEdit = onEditExpense
+            )
         }
     }
 }
@@ -378,12 +387,18 @@ private fun ExpensesList(
 @Composable
 private fun ExpenseCard(
     expense: Expense,
-    members: Map<String, Member>  // Add this parameter
+    members: Map<String, Member>,
+    onEdit: (Expense) -> Unit
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+
+    val currentExpense by rememberUpdatedState(expense)  // ✅ React to updates
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        onClick = { showEditDialog = true }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -393,25 +408,37 @@ private fun ExpenseCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = expense.description,
+                    text = currentExpense.description,  // ✅ Uses updated expense
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "$${String.format("%.2f", expense.amount)}",
+                    text = "$${String.format("%.2f", currentExpense.amount)}",
                     style = MaterialTheme.typography.titleMedium
                 )
             }
             Text(
-                text = "Paid by: ${members[expense.paidBy]?.name ?: "Unknown"}",  // Use member name
+                text = "Paid by: ${members[currentExpense.paidBy]?.name ?: "Unknown"}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = expense.category.name,
+                text = currentExpense.category.name,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+
+    if (showEditDialog) {
+        EditExpenseDialog(
+            expense = currentExpense,  // ✅ Uses updated expense
+            members = members.values.toList(),
+            onDismiss = { showEditDialog = false },
+            onConfirm = { updatedExpense ->
+                onEdit(updatedExpense)
+                showEditDialog = false
+            }
+        )
     }
 }
 
@@ -459,4 +486,212 @@ private fun MembersList(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditExpenseDialog(
+    expense: Expense,
+    members: List<Member>,
+    onDismiss: () -> Unit,
+    onConfirm: (Expense) -> Unit
+) {
+    var description by remember { mutableStateOf(expense.description) }
+    var amount by remember { mutableStateOf(expense.amount.toString()) }
+    var selectedCategory by remember { mutableStateOf(expense.category) }
+    var paidBy by remember { mutableStateOf(expense.paidBy) }
+    var splitType by remember { mutableStateOf(SplitType.EQUAL) }
+    var customSplitAmounts by remember { mutableStateOf(expense.splitAmounts) }
+
+    // State for dropdowns
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var memberExpanded by remember { mutableStateOf(false) }
+    var splitTypeExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Expense") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Amount") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Category Dropdown
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = selectedCategory.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = {
+                            IconButton(onClick = { categoryExpanded = true }) {
+                                Icon(Icons.Default.ArrowDropDown, "Show categories")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    DropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ExpenseCategory.values().forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    selectedCategory = category
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Paid By Dropdown
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = members.find { it.id == paidBy }?.name ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Paid By") },
+                        trailingIcon = {
+                            IconButton(onClick = { memberExpanded = true }) {
+                                Icon(Icons.Default.ArrowDropDown, "Show members")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    DropdownMenu(
+                        expanded = memberExpanded,
+                        onDismissRequest = { memberExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        members.forEach { member ->
+                            DropdownMenuItem(
+                                text = { Text(member.name) },
+                                onClick = {
+                                    paidBy = member.id
+                                    memberExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Split Type Dropdown
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = splitType.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Split Type") },
+                        trailingIcon = {
+                            IconButton(onClick = { splitTypeExpanded = true }) {
+                                Icon(Icons.Default.ArrowDropDown, "Show split types")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    DropdownMenu(
+                        expanded = splitTypeExpanded,
+                        onDismissRequest = { splitTypeExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        SplitType.values().forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.name) },
+                                onClick = {
+                                    splitType = type
+                                    splitTypeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Custom Split UI (shown only when splitType is CUSTOM)
+                if (splitType == SplitType.CUSTOM || splitType == SplitType.PERCENTAGE) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (splitType == SplitType.CUSTOM) "Custom Split Amounts" else "Split Percentages",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    members.forEach { member ->
+                        OutlinedTextField(
+                            value = (customSplitAmounts[member.id] ?: 0.0).toString(),
+                            onValueChange = { newValue ->
+                                val newAmount = newValue.toDoubleOrNull() ?: 0.0
+                                customSplitAmounts = customSplitAmounts.toMutableMap().apply {
+                                    put(member.id, newAmount)
+                                }
+                            },
+                            label = { Text(member.name) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amountValue = amount.toDoubleOrNull() ?: return@TextButton
+                    val updatedExpense = expense.copy(
+                        description = description,
+                        amount = amountValue,
+                        category = selectedCategory,
+                        paidBy = paidBy,
+                        splitAmounts = when (splitType) {
+                            SplitType.EQUAL -> members.associate {
+                                it.id to amountValue / members.size
+                            }
+                            SplitType.CUSTOM -> customSplitAmounts
+                            SplitType.PERCENTAGE -> {
+                                val totalPercentage = customSplitAmounts.values.sum()
+                                if (totalPercentage == 100.0) {
+                                    customSplitAmounts.mapValues { (amountValue * it.value) / 100 }
+                                } else {
+                                    error("Total percentage must sum to 100%")
+                                }
+                            }
+                        }
+                    )
+                    onConfirm(updatedExpense)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 

@@ -8,18 +8,21 @@ import kotlinx.coroutines.flow.StateFlow
 
 class ExpenseViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
+
     private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
     val expenses: StateFlow<List<Expense>> = _expenses
 
-    fun fetchExpenses(groupId: String) {
+    init {
+        listenForExpenses()
+    }
+
+    private fun listenForExpenses() {
         db.collection("expenses")
-            .whereEqualTo("groupId", groupId)
-            .addSnapshotListener { snapshot, _ ->
-                snapshot?.documents?.mapNotNull {
-                    it.toObject(Expense::class.java)
-                }?.let { expenses ->
-                    _expenses.value = expenses
-                }
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+
+                val updatedExpenses = snapshot.documents.mapNotNull { it.toObject(Expense::class.java) }
+                _expenses.value = updatedExpenses  // Triggers UI recomposition
             }
     }
 }
