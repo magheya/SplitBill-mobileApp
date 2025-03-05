@@ -66,6 +66,20 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
+                    // Display Name
+                    Text(
+                        text = "Name",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = currentUser?.displayName ?: "Not available",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp)) // Add spacing between name and email
+
+                    // Email
                     Text(
                         text = "Email",
                         style = MaterialTheme.typography.labelMedium,
