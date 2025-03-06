@@ -428,26 +428,30 @@ class GroupViewModel @Inject constructor(
     }
 
     fun calculatePersonalBalances(userId: String): Pair<Double, Double> {
-        val currentGroup = _selectedGroup.value ?: return Pair(0.0, 0.0)
+        val allGroups = _groups.value // Use all groups instead of only the selected group
         var totalExpenses = 0.0
         var totalDebts = 0.0
 
-        // Calculate total expenses paid by user
-        currentGroup.expenses.values
-            .filter { it.paidBy == userId }
-            .forEach { expense ->
-                totalExpenses += expense.amount
-            }
+        for (group in allGroups) {
+            // Calculate total expenses paid by user
+            group.expenses.values
+                .filter { it.paidBy == userId }
+                .forEach { expense ->
+                    totalExpenses += expense.amount
+                }
 
-        // Calculate debts (what the user owes to others)
-        currentGroup.expenses.values
-            .filter { it.paidBy != userId } // Expenses not paid by the user
-            .forEach { expense ->
-                // Get the split amount for the current user
-                val userSplitAmount = expense.splitAmounts[userId] ?: 0.0
-                totalDebts += userSplitAmount
-            }
+            // Calculate debts (what the user owes to others)
+            group.expenses.values
+                .filter { it.paidBy != userId } // Expenses not paid by the user
+                .forEach { expense ->
+                    // Get the split amount for the current user
+                    val userSplitAmount = expense.splitAmounts[userId] ?: 0.0
+                    totalDebts += userSplitAmount
+                }
+        }
 
         return Pair(totalExpenses, totalDebts)
     }
+
+
 }
