@@ -48,14 +48,10 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("My Dashboard") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                    IconButton(onClick = { onNavigateBack?.invoke() }) {  // Ensure it's not null
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                }
             )
         }
     ) { paddingValues ->

@@ -75,7 +75,9 @@ fun NavGraph(
             HomeScreen(
                 onNavigateToGroups = { navController.navigate(Screen.Groups.route) },
                 onNavigateToProfile = { navController.navigate(Screen.Profile.route) },  // Add comma here
-                onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) }
+                onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
+                groupCount = groups.size,
+                dashboardSummary = "You have ${groups.size} groups",
             )
         }
 

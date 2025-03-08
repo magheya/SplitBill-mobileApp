@@ -17,33 +17,33 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ForestGreen80,
-    secondary = DarkGreen80,
-    tertiary = Moss80,
-    background = DarkGreen40,
-    surface = DarkGreen80,
+    primary = Color(0xFF1B5E20), // Deep Emerald Green
+    secondary = Color(0xFF00897B), // Teal
+    tertiary = Color(0xFF9CCC65), // Muted Lime Green
+    background = Color(0xFF121212), // Charcoal Black (true dark mode)
+    surface = Color(0xFF263238), // Dark Forest Green
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    surfaceVariant = DarkGreen40,
-    onSurfaceVariant = Color(0xDEFFFFFF) // Light black (87% white) for dark theme
+    onTertiary = Color(0xFF121212), // Dark text for contrast
+    onBackground = Color(0xFFE0E0E0), // Light gray for readability
+    onSurface = Color(0xFFE0E0E0), // Light gray for better contrast
+    surfaceVariant = Color(0xFF37474F), // Bluish Gray for a sleek look
+    onSurfaceVariant = Color(0xFFB0BEC5) // Soft Gray for subtext
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = ForestGreen40,
-    secondary = DarkGreen40,
-    tertiary = Moss40,
-    background = BackgroundGreen,
-    surface = SurfaceGreen,
+    primary = Color(0xFF2E7D32), // Forest Green
+    secondary = Color(0xFF00796B), // Teal
+    tertiary = Color(0xFFAED581), // Soft Lime Green
+    background = Color(0xFFFAFAFA), // Soft White
+    surface = Color(0xFFE8F5E9), // Light Mint Green
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = DarkGreen40,
-    onSurface = DarkGreen40,
-    surfaceVariant = LightGreen,
-    onSurfaceVariant = Color(0xDE000000) // Dark black (87% opacity) for light theme
+    onTertiary = Color(0xFF1B5E20), // Deep Green for contrast
+    onBackground = Color(0xFF37474F), // Dark Greenish Gray for readability
+    onSurface = Color(0xFF37474F), // Consistent with text
+    surfaceVariant = Color(0xFFC8E6C9), // Soft pastel green for balance
+    onSurfaceVariant = Color(0xFF455A64) // Muted blue-gray for softer contrast
 )
 
 @Composable
