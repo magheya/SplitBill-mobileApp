@@ -48,7 +48,7 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("My Dashboard") },
                 navigationIcon = {
-                    IconButton(onClick = { onNavigateBack?.invoke() }) {  // Ensure it's not null
+                    IconButton(onClick = { onNavigateBack.invoke() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -161,6 +161,15 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
+
+            // **NEW: Expense vs Debts Chart**
+            item {
+                ExpenseDebtChart(
+                    totalExpenses = personalExpenses,
+                    totalDebts = personalDebts,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
             }
 
             // Personal Category Pie Chart

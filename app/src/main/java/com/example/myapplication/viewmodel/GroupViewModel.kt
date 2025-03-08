@@ -453,5 +453,10 @@ class GroupViewModel @Inject constructor(
         return Pair(totalExpenses, totalDebts)
     }
 
+    fun calculateAmountIOwe(userId: String): Double {
+        return _settlements.value
+            .filter { (debtor, _) -> debtor.id == userId }
+            .sumOf { (_, creditor) -> creditor.paid }
+    }
 
 }
