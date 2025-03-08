@@ -45,6 +45,8 @@ fun NavGraph(
     val groups by groupViewModel.groups.collectAsState(initial = emptyList())
     val selectedGroup by groupViewModel.selectedGroup.collectAsState()
 
+
+
     NavHost(
         navController = navController,
         startDestination = "splash",
@@ -72,12 +74,15 @@ fun NavGraph(
 
         // Home screen
         composable(Screen.Home.route) {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return@composable
+            val (_, personalDebts) = groupViewModel.calculatePersonalBalances(currentUserId) // Get personal debts
+
             HomeScreen(
                 onNavigateToGroups = { navController.navigate(Screen.Groups.route) },
                 onNavigateToProfile = { navController.navigate(Screen.Profile.route) },  // Add comma here
                 onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
                 groupCount = groups.size,
-                dashboardSummary = "You have ${groups.size} groups",
+                dashboardSummary = "You owe ${String.format("%.2f", personalDebts)} ",
             )
         }
 
