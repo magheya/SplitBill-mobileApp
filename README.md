@@ -16,14 +16,14 @@ The app uses modern Android development technologies:
 - Navigation Component for screen navigation
 - Firebase for backend services:
     - Authentication
-    - Firestore for database storage
+    - Realtime Firebase for database storage
     - Firebase ML Kit for text recognition from receipt photos
 
 The application demonstrates several Android best practices:
 - Permission handling for camera access
 - File handling for storing receipt photos
 - Image processing with Firebase ML Kit
-- Real-time data with Firebase Firestore listeners
+- Real-time data with Realtime Firebase listeners
 - Clean architecture with separation of concerns
 
 The receipt scanning feature allows users to quickly add expenses by taking a photo of a receipt, automatically extracting relevant information like amount and date, and then adding it to the group's expenses.
