@@ -14,6 +14,13 @@ import androidx.compose.ui.Modifier  // For Modifier properties like fillMaxSize
 import androidx.compose.ui.unit.dp  // For dp unit (spacing, padding)
 import com.example.myapplication.data.model.*
 
+/**
+ * Composable function for displaying the groups screen.
+ *
+ * @param groups The list of groups to display.
+ * @param onCreateGroup Callback function to be called when a new group is created.
+ * @param onNavigateBack Callback function to be called when navigating back.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsScreen(
@@ -121,6 +128,12 @@ fun GroupsScreen(
     }
 }
 
+/**
+ * Composable function for displaying a group card.
+ *
+ * @param group The group to display.
+ * @param onClick Callback function to be called when the card is clicked.
+ */
 @Composable
 private fun GroupCard(
     group: Group,

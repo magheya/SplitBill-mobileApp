@@ -16,6 +16,12 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Repository class for managing group-related data in Firebase.
+ *
+ * @property database The Firebase database instance.
+ * @property auth The Firebase authentication instance.
+ */
 @Singleton
 class FirebaseGroupRepository @Inject constructor(
     private val database: FirebaseDatabase,
@@ -23,7 +29,15 @@ class FirebaseGroupRepository @Inject constructor(
 ) : GroupRepository {
     private val groupsRef = database.reference.child("groups")
     private val userGroupsRef = database.reference.child("user_groups")
-
+    /**
+     * Creates a new group in the Firebase database.
+     *
+     * @param name The name of the group.
+     * @param createdBy The ID of the user who created the group.
+     * @param members The list of members in the group.
+     * @return The ID of the created group.
+     * @throws Exception If an error occurs while creating the group.
+     */
     override suspend fun createGroup(name: String, createdBy: String, members: List<Member>): String {
         try {
             val groupId = groupsRef.push().key ?: throw IllegalStateException("Couldn't get push key")
@@ -64,6 +78,12 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Observes the groups of a specific user.
+     *
+     * @param userId The ID of the user.
+     * @return A flow of the list of groups.
+     */
     override fun observeGroups(userId: String): Flow<List<Group>> = callbackFlow {
         var groupsListener: ValueEventListener? = null
 
@@ -142,6 +162,12 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Observes a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @return A flow of the group.
+     */
     override fun observeGroup(groupId: String): Flow<Group?> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -166,6 +192,12 @@ class FirebaseGroupRepository @Inject constructor(
         awaitClose { groupsRef.child(groupId).removeEventListener(listener) }
     }
 
+    /**
+     * Observes the expenses of a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @return A flow of the list of expenses.
+     */
     override fun observeExpenses(groupId: String): Flow<List<Expense>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -194,6 +226,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Retrieves the expenses of a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @return The list of expenses.
+     * @throws Exception If an error occurs while retrieving the expenses.
+     */
     override suspend fun getExpenses(groupId: String): List<Expense> {
         return try {
             val snapshot = groupsRef.child(groupId).child("expenses").get().await()
@@ -213,6 +252,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Adds an expense to a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @param expense The expense to add.
+     * @throws Exception If an error occurs while adding the expense.
+     */
     override suspend fun addExpense(groupId: String, expense: Expense) {
         try {
             val expenseId = groupsRef.child(groupId)
@@ -238,6 +284,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Adds a member to a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @param member The member to be added.
+     * @throws Exception If an error occurs while adding the member.
+     */
     override suspend fun addMember(groupId: String, member: Member) {
         try {
             // Add member to group's members
@@ -258,6 +311,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Removes a member from a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @param memberId The ID of the member to be removed.
+     * @throws Exception If an error occurs while removing the member.
+     */
     override suspend fun removeMember(groupId: String, memberId: String) {
         try {
             // Remove member from group's members
@@ -278,6 +338,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Retrieves a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @return The group, or null if not found.
+     * @throws Exception If an error occurs while retrieving the group.
+     */
     override suspend fun getGroup(groupId: String): Group? {
         return try {
             val snapshot = groupsRef.child(groupId).get().await()
@@ -290,7 +357,13 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
-
+    /**
+     * Calculates the balances for a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @return A map of user IDs to their balances.
+     * @throws Exception If an error occurs while calculating the balances.
+     */
     override suspend fun calculateBalances(groupId: String): Map<String, Double> {
         return try {
             val expenses = getExpenses(groupId)
@@ -309,6 +382,12 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Updates a specific group.
+     *
+     * @param group The group to be updated.
+     * @throws Exception If an error occurs while updating the group.
+     */
     override suspend fun updateGroup(group: Group) {
         try {
             groupsRef.child(group.id).setValue(group).await()
@@ -319,6 +398,12 @@ class FirebaseGroupRepository @Inject constructor(
         }
     }
 
+    /**
+     * Deletes a specific group.
+     *
+     * @param groupId The ID of the group.
+     * @throws Exception If an error occurs while deleting the group.
+     */
     override suspend fun deleteGroup(groupId: String) {
         try {
             // Get the group first to get all members

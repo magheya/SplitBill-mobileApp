@@ -21,6 +21,12 @@ import com.example.myapplication.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 
+/**
+ * Applies the custom theme to the application.
+ *
+ * @param darkTheme Whether the dark theme is enabled.
+ * @param content The content to be displayed within the theme.
+ */
 @Composable
 fun AuthScreen(
     onSignInSuccess: () -> Unit,

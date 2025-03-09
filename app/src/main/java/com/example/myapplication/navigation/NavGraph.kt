@@ -21,12 +21,22 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.material.icons.filled.ArrowBack
 import com.example.myapplication.ui.scanner.ReceiptScannerScreen
 
-
+/**
+ * Sealed class representing the different screens in the navigation graph.
+ *
+ * @property route The route associated with the screen.
+ */
 sealed class Screen(val route: String) {
     object Auth : Screen("auth")
     object Home : Screen("home")
     object Groups : Screen("groups")
     object GroupDetails : Screen("group/{groupId}") {
+        /**
+         * Creates a route for the GroupDetails screen with the specified groupId.
+         *
+         * @param groupId The ID of the group.
+         * @return The route string for the GroupDetails screen.
+         */
         fun createRoute(groupId: String) = "group/$groupId"
     }
     object Profile : Screen("profile")
@@ -34,6 +44,12 @@ sealed class Screen(val route: String) {
     object Scanner : Screen("scanner")
 }
 
+/**
+ * Composable function for setting up the navigation graph.
+ *
+ * @param navController The NavHostController for navigation.
+ * @param modifier The Modifier for styling the composable.
+ */
 @Composable
 fun NavGraph(
     navController: NavHostController,
