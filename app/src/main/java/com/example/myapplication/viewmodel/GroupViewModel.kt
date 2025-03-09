@@ -16,6 +16,9 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import javax.inject.Inject
 
+/**
+ * ViewModel class for managing group-related data and operations.
+ */
 @HiltViewModel
 class GroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
@@ -31,7 +34,10 @@ class GroupViewModel @Inject constructor(
     private val _settlements = MutableStateFlow<List<Pair<Member, Member>>>(emptyList())
     val settlements: StateFlow<List<Pair<Member, Member>>> = _settlements
 
+    // MutableStateFlow to hold the expenses map
     private val _expenses = MutableStateFlow<Map<String, Expense>>(emptyMap())
+
+    // Publicly exposed StateFlow for observing expenses
     val expenses: StateFlow<Map<String, Expense>> = _expenses
 
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
@@ -104,7 +110,11 @@ class GroupViewModel @Inject constructor(
         super.onCleared()
         auth.removeAuthStateListener(authStateListener)
     }
-
+    /**
+     * Observes changes in the expenses of a specified group.
+     *
+     * @param groupId The ID of the group to observe.
+     */
     private fun observeGroups(userId: String) {
         viewModelScope.launch {
             try {
@@ -253,7 +263,12 @@ class GroupViewModel @Inject constructor(
             Log.w("Firebase", "Error retrieving totalAmount", e)
         }
     }
-
+    /**
+     * Updates an expense in the specified group.
+     *
+     * @param groupId The ID of the group.
+     * @param expense The expense to be updated.
+     */
     fun updateExpense(groupId: String, expense: Expense) {
         viewModelScope.launch {
             try {

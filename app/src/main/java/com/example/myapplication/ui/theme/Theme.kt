@@ -45,7 +45,12 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = Color(0xFFC8E6C9), // Soft pastel green for balance
     onSurfaceVariant = Color(0xFF455A64) // Muted blue-gray for softer contrast
 )
-
+/**
+ * Applies the custom theme to the application.
+ *
+ * @param darkTheme Whether the dark theme is enabled.
+ * @param content The content to be displayed within the theme.
+ */
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

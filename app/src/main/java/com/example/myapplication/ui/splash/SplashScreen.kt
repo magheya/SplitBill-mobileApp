@@ -22,6 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
 import kotlinx.coroutines.delay
 
+/**
+ * Applies the custom theme to the application.
+ *
+ * @param darkTheme Whether the dark theme is enabled.
+ * @param content The content to be displayed within the theme.
+ */
 @Composable
 fun SplashScreen(
     onSplashComplete: () -> Unit
