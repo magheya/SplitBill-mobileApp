@@ -442,36 +442,36 @@ class GroupViewModel @Inject constructor(
         _settlements.value = settlements
     }
 
+
+
     fun calculatePersonalBalances(userId: String): Pair<Double, Double> {
-        val allGroups = _groups.value // Use all groups instead of only the selected group
-        var totalExpenses = 0.0
-        var totalDebts = 0.0
+        val allGroups = _groups.value
+        var totalPaidByUser = 0.0
+        var totalUserOwes = 0.0
+        var totalOwedToUser = 0.0
 
         for (group in allGroups) {
-            // Calculate total expenses paid by user
-            group.expenses.values
-                .filter { it.paidBy == userId }
-                .forEach { expense ->
-                    totalExpenses += expense.amount
-                }
+            for (expense in group.expenses.values) {
+                val userShare = expense.splitAmounts[userId] ?: 0.0
 
-            // Calculate debts (what the user owes to others)
-            group.expenses.values
-                .filter { it.paidBy != userId } // Expenses not paid by the user
-                .forEach { expense ->
-                    // Get the split amount for the current user
-                    val userSplitAmount = expense.splitAmounts[userId] ?: 0.0
-                    totalDebts += userSplitAmount
+                if (expense.paidBy == userId) {
+                    // User paid for the group
+                    totalPaidByUser += expense.amount
+                    // Others' share = total - user's own share
+                    totalOwedToUser += expense.amount - userShare
+                } else {
+                    // Someone else paid
+                    totalUserOwes += userShare
                 }
+            }
         }
 
-        return Pair(totalExpenses, totalDebts)
-    }
+        // What the user actually *owes* is what they owe others minus what others owe them
+        val netDebt = totalUserOwes - totalOwedToUser
 
-    fun calculateAmountIOwe(userId: String): Double {
-        return _settlements.value
-            .filter { (debtor, _) -> debtor.id == userId }
-            .sumOf { (_, creditor) -> creditor.paid }
+        return Pair(totalPaidByUser, netDebt.coerceAtLeast(0.0)) // debt can't be negative
     }
 
 }
+
+
